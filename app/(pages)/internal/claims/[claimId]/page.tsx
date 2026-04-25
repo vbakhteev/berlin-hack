@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useState } from "react";
-import { useQuery } from "convex/react";
+import { useQuery, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,33 @@ export default function InternalClaimPage({ params }: PageProps) {
     )
     .sort((a, b) => a.timestamp - b.timestamp);
 
+  const transcriptText = (() => {
+    if (transcriptEvents.length === 0) return claim.transcriptText ?? null;
+
+    type Segment = { speaker: string; text: string };
+    const merged: Segment[] = [];
+    for (const e of transcriptEvents) {
+      const speaker = e.type === "transcript_user" ? "User" : "Agent";
+      const raw =
+        typeof e.payload === "string"
+          ? e.payload
+          : typeof (e.payload as { text?: string })?.text === "string"
+            ? (e.payload as { text: string }).text
+            : JSON.stringify(e.payload);
+      const text = raw.trim();
+      if (!text) continue;
+      const last = merged[merged.length - 1];
+      if (last && last.speaker === speaker) {
+        last.text = last.text.trimEnd() + " " + text;
+      } else {
+        merged.push({ speaker, text });
+      }
+    }
+    return merged
+      .map(({ speaker, text }) => `[${speaker}]: ${text}`)
+      .join("\n\n");
+  })();
+
   return (
     <main className="min-h-screen bg-background">
       {/* Top bar */}
@@ -75,6 +102,12 @@ export default function InternalClaimPage({ params }: PageProps) {
             </Button>
           </Link>
           <div className="flex-1" />
+          {claim.status === "in_review" && (
+            <ApproveRejectPanel
+              claimId={claimId as Id<"claims">}
+              claimRef={shortRef}
+            />
+          )}
           <StatusBadge status={claim.status} size="md" />
         </div>
       </div>
@@ -161,14 +194,11 @@ export default function InternalClaimPage({ params }: PageProps) {
 
             {/* Transcript */}
             <Section title="Call Transcript">
-              {transcriptEvents.length > 0 ? (
-                <TranscriptView events={transcriptEvents} />
-              ) : claim.transcriptText ? (
-                <div className="bg-muted/40 rounded-lg p-4">
-                  <pre className="text-xs whitespace-pre-wrap font-sans leading-relaxed text-foreground/80">
-                    {claim.transcriptText}
-                  </pre>
-                </div>
+              {transcriptText ? (
+                <TranscriptDownload
+                  text={transcriptText}
+                  filename={`transcript-${shortRef}.txt`}
+                />
               ) : (
                 <p className="text-sm text-muted-foreground italic">
                   No transcript recorded
@@ -376,58 +406,65 @@ function Field({
   );
 }
 
-function TranscriptView({
-  events,
+function TranscriptDownload({
+  text,
+  filename,
 }: {
-  events: Array<{
-    type: string;
-    payload: unknown;
-    timestamp: number;
-  }>;
+  text: string;
+  filename: string;
 }) {
-  return (
-    <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
-      {events.map((e, i) => {
-        const isUser = e.type === "transcript_user";
-        const text =
-          typeof e.payload === "string"
-            ? e.payload
-            : typeof (e.payload as { text?: string })?.text === "string"
-              ? (e.payload as { text: string }).text
-              : JSON.stringify(e.payload);
+  const lineCount = text.split("\n\n").filter(Boolean).length;
 
-        return (
-          <div
-            key={i}
-            className={cn(
-              "flex gap-2",
-              isUser ? "justify-end" : "justify-start"
-            )}
-          >
-            {!isUser && (
-              <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                <span className="text-[10px]">A</span>
-              </div>
-            )}
-            <div
-              className={cn(
-                "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
-                isUser
-                  ? "bg-primary text-primary-foreground rounded-br-sm"
-                  : "bg-muted rounded-bl-sm"
-              )}
-            >
-              {text}
-            </div>
-            {isUser && (
-              <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
-                <span className="text-[10px]">U</span>
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
+  const handleDownload = () => {
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <button
+      onClick={handleDownload}
+      className="w-full flex items-center gap-3 px-4 py-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 transition-colors text-left group"
+    >
+      <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+        <svg
+          className="w-4 h-4 text-primary"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+          />
+        </svg>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{filename}</p>
+        <p className="text-xs text-muted-foreground">
+          {lineCount} messages · TXT
+        </p>
+      </div>
+      <svg
+        className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+        />
+      </svg>
+    </button>
   );
 }
 
@@ -632,6 +669,7 @@ function StatusBadge({
     in_review: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
     accepted:
       "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300",
+    rejected: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
   };
   return (
     <span
@@ -650,6 +688,7 @@ const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
   in_review: "In Review",
   accepted: "Accepted",
+  rejected: "Rejected",
 };
 
 const EVENT_COLORS: Record<string, string> = {
@@ -686,6 +725,107 @@ function LoadingSkeleton() {
         </div>
       </div>
     </main>
+  );
+}
+
+function ApproveRejectPanel({
+  claimId,
+  claimRef,
+}: {
+  claimId: Id<"claims">;
+  claimRef: string;
+}) {
+  const approve = useAction(api.claims.approveClaim);
+  const reject = useAction(api.claims.rejectClaim);
+  const [showRejectConfirm, setShowRejectConfirm] = useState(false);
+  const [loading, setLoading] = useState<"approve" | "reject" | null>(null);
+  const [done, setDone] = useState<"approved" | "rejected" | null>(null);
+
+  void claimRef; // used for future ref display if needed
+
+  if (done === "approved") {
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 dark:bg-green-950 text-green-800 dark:text-green-200 text-sm font-medium border border-green-200 dark:border-green-800">
+        <span>✓</span> Claim approved — confirmation email sent
+      </div>
+    );
+  }
+  if (done === "rejected") {
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-950 text-red-800 dark:text-red-200 text-sm font-medium border border-red-200 dark:border-red-800">
+        <span>✕</span> Claim rejected — notification email sent
+      </div>
+    );
+  }
+
+  const handleApprove = async () => {
+    setLoading("approve");
+    try {
+      await approve({ claimId });
+      setDone("approved");
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const handleReject = async () => {
+    setLoading("reject");
+    try {
+      await reject({ claimId });
+      setDone("rejected");
+    } finally {
+      setLoading(null);
+      setShowRejectConfirm(false);
+    }
+  };
+
+  if (showRejectConfirm) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-muted-foreground">
+          Confirm rejection?
+        </span>
+        <Button
+          size="sm"
+          variant="destructive"
+          className="h-8 text-xs"
+          disabled={loading === "reject"}
+          onClick={handleReject}
+        >
+          {loading === "reject" ? "Rejecting…" : "Yes, reject"}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-8 text-xs"
+          onClick={() => setShowRejectConfirm(false)}
+        >
+          Cancel
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        size="sm"
+        className="h-8 text-xs bg-green-600 hover:bg-green-700 text-white"
+        disabled={loading !== null}
+        onClick={handleApprove}
+      >
+        {loading === "approve" ? "Approving…" : "Approve"}
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-8 text-xs border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+        disabled={loading !== null}
+        onClick={() => setShowRejectConfirm(true)}
+      >
+        Reject
+      </Button>
+    </div>
   );
 }
 

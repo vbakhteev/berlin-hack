@@ -14,6 +14,7 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as claims from "../claims.js";
+import type * as emails from "../emails.js";
 import type * as http from "../http.js";
 import type * as policies from "../policies.js";
 import type * as policyTemplates from "../policyTemplates.js";
@@ -32,6 +33,7 @@ import type * as users from "../users.js";
  */
 declare const fullApi: ApiFromModules<{
   claims: typeof claims;
+  emails: typeof emails;
   http: typeof http;
   policies: typeof policies;
   policyTemplates: typeof policyTemplates;

@@ -16,9 +16,11 @@ export default defineSchema({
     sessionId: v.string(),
     matchedPolicyType: v.optional(v.string()),
     status: v.union(
+      v.literal("call"),
       v.literal("draft"),
       v.literal("in_review"),
-      v.literal("accepted")
+      v.literal("accepted"),
+      v.literal("rejected")
     ),
     stage: v.union(
       v.literal("greeting"),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useAction, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useRouter } from "next/navigation";
@@ -21,7 +21,11 @@ export function CallView({ sessionId }: { sessionId: string }) {
 
   const { handleToolCall } = useToolBridge(sessionId);
   const saveGpsLocation = useMutation(api.claims.saveGpsLocation);
+  const endCallMutation = useMutation(api.claims.endCall);
+  const generateUploadUrl = useMutation(api.uploads.generateUploadUrl);
+  const attachMedia = useMutation(api.claims.attachMedia);
 
+  const transcriptLinesRef = useRef<string[]>([]);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [gpsCoords, setGpsCoords] = useState<GeolocationCoordinates | null>(null);
   const [inspectionHint, setInspectionHint] = useState<string | undefined>();
@@ -66,6 +70,10 @@ export function CallView({ sessionId }: { sessionId: string }) {
         setOptimisticInspectionRequested(true);
         if (call.args.hint) setInspectionHint(call.args.hint as string);
       }
+      // Inject accumulated transcript so the bridge can persist it
+      if (call.name === "finalize_claim") {
+        call.args.transcriptText = transcriptLinesRef.current.join("\n");
+      }
       const result = await handleToolCall(call);
 
       // After finalize, trigger Tavily and redirect
@@ -89,7 +97,15 @@ export function CallView({ sessionId }: { sessionId: string }) {
           })
         : "You are Lina, a helpful insurance claims assistant.",
     onToolCall,
-    onTranscript: (_text, role) => {
+    onTranscript: (text, role) => {
+      const prefix = role === "user" ? "[User]: " : "[Lina]: ";
+      const lines = transcriptLinesRef.current;
+      const last = lines[lines.length - 1];
+      if (last?.startsWith(prefix)) {
+        lines[lines.length - 1] = last.trimEnd() + " " + text.trim();
+      } else {
+        lines.push(prefix + text);
+      }
       if (role === "model") setIsSpeaking(true);
       setTimeout(() => setIsSpeaking(false), 2000);
     },
@@ -106,6 +122,8 @@ export function CallView({ sessionId }: { sessionId: string }) {
   }, [apiKey, currentUser, hasConnected, state, connect]);
 
   const handleEndCall = async () => {
+    // Flush any in-progress inspection recording before disconnecting
+    if (showCameraOverlay) await handleStopCamera();
     disconnect();
     if (claim?._id && gpsCoords) {
       await saveGpsLocation({
@@ -115,17 +133,39 @@ export function CallView({ sessionId }: { sessionId: string }) {
         accuracyMeters: gpsCoords.accuracy,
       }).catch(console.error);
     }
-    if (claim?._id && claim.stage !== "closed") {
-      router.push(`/claim/${sessionId}`);
+    if (claim?._id) {
+      await endCallMutation({ claimId: claim._id }).catch(console.error);
+      // page.tsx reacts to status change via Convex real-time query
     } else {
       router.push("/dashboard");
     }
   };
 
-  const handleStopCamera = useCallback(() => {
-    stopVideo();
+  const handleStopCamera = useCallback(async () => {
+    const recording = await stopVideo();
     setShowCameraOverlay(false);
-  }, [stopVideo]);
+    if (recording && claim?._id) {
+      try {
+        const uploadUrl = await generateUploadUrl();
+        const res = await fetch(uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": recording.blob.type || "video/webm" },
+          body: recording.blob,
+        });
+        if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+        const { storageId } = await res.json();
+        if (!storageId) throw new Error("Upload response missing storageId");
+        await attachMedia({
+          claimId: claim._id,
+          storageId,
+          kind: "damage_video",
+          durationSec: recording.durationSec,
+        });
+      } catch (e) {
+        console.error("[CallView] video upload failed:", e);
+      }
+    }
+  }, [stopVideo, claim?._id, generateUploadUrl, attachMedia]);
 
   const inspectionRequested = (claim?.visualInspectionRequested || optimisticInspectionRequested) && !showCameraOverlay;
 
@@ -149,6 +189,7 @@ export function CallView({ sessionId }: { sessionId: string }) {
         hint={inspectionHint}
         onStartCamera={startVideo}
         onStop={handleStopCamera}
+        onEndCall={handleEndCall}
       />
 
       {/* Inspection button overlay (appears when tool fires but camera not yet open) */}

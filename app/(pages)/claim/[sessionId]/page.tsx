@@ -28,13 +28,9 @@ export default function ClaimPage({ params }: PageProps) {
     );
   }
 
-  if (claim.status === "in_review" || claim.status === "accepted") {
-    return <ReviewView sessionId={sessionId} />;
+  if (claim.status === "call") {
+    return <CallView sessionId={sessionId} />;
   }
 
-  if (claim.stage === "closed" || claim.finalizedAt) {
-    return <ReviewView sessionId={sessionId} />;
-  }
-
-  return <CallView sessionId={sessionId} />;
+  return <ReviewView sessionId={sessionId} />;
 }

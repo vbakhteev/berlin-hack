@@ -1,4 +1,5 @@
-import { mutation, query } from "./_generated/server";
+import { action, mutation, query } from "./_generated/server";
+import { api } from "./_generated/api";
 import { v } from "convex/values";
 import { getPolicyTemplate } from "./policyTemplates";
 
@@ -54,7 +55,7 @@ export const create = mutation({
     return ctx.db.insert("claims", {
       userId: user._id,
       sessionId,
-      status: "draft",
+      status: "call",
       stage: "greeting",
       visualInspectionRequested: false,
       createdAt: new Date().toISOString(),
@@ -136,6 +137,37 @@ export const saveGpsLocation = mutation({
   },
 });
 
+export const endCall = mutation({
+  args: { claimId: v.id("claims") },
+  handler: async (ctx, { claimId }) => {
+    await ctx.db.patch(claimId, { status: "draft", stage: "closed" });
+  },
+});
+
+export const attachMedia = mutation({
+  args: {
+    claimId: v.id("claims"),
+    storageId: v.id("_storage"),
+    kind: v.union(
+      v.literal("damage_video"),
+      v.literal("damage_frame"),
+      v.literal("invoice")
+    ),
+    durationSec: v.optional(v.number()),
+  },
+  handler: async (ctx, { claimId, storageId, kind, durationSec }) => {
+    const claim = await ctx.db.get(claimId);
+    if (!claim) throw new Error("Claim not found");
+    const entry = {
+      kind,
+      storageId,
+      capturedAt: new Date().toISOString(),
+      ...(durationSec != null ? { durationSec } : {}),
+    };
+    await ctx.db.patch(claimId, { media: [...(claim.media ?? []), entry] });
+  },
+});
+
 export const allClaims = query({
   args: {},
   handler: async (ctx) => {
@@ -198,5 +230,67 @@ export const updateDraftFields = mutation({
       await ctx.db.patch(claimId, patch);
     }
     return { ok: true };
+  },
+});
+
+export const setStatus = mutation({
+  args: {
+    claimId: v.id("claims"),
+    status: v.union(
+      v.literal("draft"),
+      v.literal("in_review"),
+      v.literal("accepted"),
+      v.literal("rejected")
+    ),
+  },
+  handler: async (ctx, { claimId, status }) => {
+    await ctx.db.patch(claimId, { status });
+  },
+});
+
+export const approveClaim = action({
+  args: { claimId: v.id("claims") },
+  handler: async (ctx, { claimId }) => {
+    const claim = await ctx.runQuery(api.claims.byId, { claimId });
+    if (!claim) throw new Error("Claim not found");
+
+    await ctx.runMutation(api.claims.setStatus, {
+      claimId,
+      status: "accepted",
+    });
+
+    const email = claim.callerEmail;
+    if (email) {
+      const shortRef = claim.sessionId.slice(-8).toUpperCase();
+      await ctx.runAction(api.emails.sendApprovalEmail, {
+        to: email,
+        claimRef: `REF ${shortRef}`,
+        payoutLow: claim.expectedPayoutLowEur ?? undefined,
+        payoutHigh: claim.expectedPayoutHighEur ?? undefined,
+      });
+    }
+  },
+});
+
+export const rejectClaim = action({
+  args: { claimId: v.id("claims"), reason: v.optional(v.string()) },
+  handler: async (ctx, { claimId, reason }) => {
+    const claim = await ctx.runQuery(api.claims.byId, { claimId });
+    if (!claim) throw new Error("Claim not found");
+
+    await ctx.runMutation(api.claims.setStatus, {
+      claimId,
+      status: "rejected",
+    });
+
+    const email = claim.callerEmail;
+    if (email) {
+      const shortRef = claim.sessionId.slice(-8).toUpperCase();
+      await ctx.runAction(api.emails.sendRejectionEmail, {
+        to: email,
+        claimRef: `REF ${shortRef}`,
+        reason,
+      });
+    }
   },
 });

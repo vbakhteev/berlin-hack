@@ -157,7 +157,6 @@ export function useGeminiLive({
               if (part.inlineData?.mimeType?.startsWith("audio/")) {
                 audioPlayerRef.current?.enqueue(part.inlineData.data);
               }
-              if (part.text) onTranscript?.(part.text, "model");
             }
           }
           if (sc.inputTranscription?.text)
@@ -209,6 +208,8 @@ export function useGeminiLive({
 
   const startVideo = useCallback(
     async (videoEl: HTMLVideoElement) => {
+      // Guard against concurrent starts (React strict-mode fires the effect twice)
+      if (videoPipelineRef.current) return;
       const pipeline = new VideoPipeline();
       videoPipelineRef.current = pipeline;
       await pipeline.start(
@@ -227,10 +228,13 @@ export function useGeminiLive({
     [sendMessage]
   );
 
-  const stopVideo = useCallback(() => {
-    videoPipelineRef.current?.stop();
+  const stopVideo = useCallback(async () => {
+    const result = videoPipelineRef.current
+      ? await videoPipelineRef.current.stopAndGetBlob()
+      : null;
     videoPipelineRef.current = null;
     setIsVideoActive(false);
+    return result;
   }, []);
 
   const disconnect = useCallback(() => {
