@@ -12,7 +12,10 @@ async function sendEmail({
   html: string;
 }) {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) throw new Error("RESEND_API_KEY not set");
+  if (!apiKey) {
+    console.warn("RESEND_API_KEY not set — skipping email to", to);
+    return;
+  }
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",

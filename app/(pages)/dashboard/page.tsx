@@ -14,12 +14,16 @@ const STATUS_COLORS: Record<string, string> = {
   draft: "bg-blue-500",
   in_review: "bg-purple-500",
   accepted: "bg-emerald-500",
+  call: "bg-blue-400",
+  rejected: "bg-red-500",
 };
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
   in_review: "In review",
   accepted: "Accepted",
+  call: "In call",
+  rejected: "Rejected",
 };
 
 export default function DashboardPage() {
