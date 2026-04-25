@@ -1,5 +1,6 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { api } from "./_generated/api";
 import { POLICY_TEMPLATES, POLICY_TEMPLATES_BY_ID, getPolicyTemplate, getPolicyTemplateByNumber } from "./policyTemplates";
 
 async function getOrCreateUser(ctx: any) {
@@ -265,6 +266,8 @@ export const finalizeClaim = mutation({
 
     const refreshed = await ctx.db.get(claim._id);
     await logEvent(ctx, refreshed, "tool_call", "finalize_claim", { summary, callerEmail });
+
+    await ctx.scheduler.runAfter(0, api.tavily.researchReplacementPrice, { claimId: claim._id });
 
     return { ok: true, claimId: claim._id, formLinkSent: false };
   },
