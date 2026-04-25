@@ -2,12 +2,17 @@ export const toolSchemas = [
   {
     name: "match_policy",
     description:
-      "Match the current claim context to one of the caller's loaded policies. " +
-      "Call this as soon as you have a rough sense of what was damaged or what happened. Do not wait. " +
+      "Match the current claim to one of the caller's policies. " +
+      "Use the MATCH WHEN triggers from the system prompt to pick the right policy ID. " +
+      "Pass the policy ID directly if you know which policy applies. " +
       "The response includes full policy details and handling guidance (policyGuidance) — read and apply it before proceeding.",
     parameters: {
       type: "object",
       properties: {
+        policyType: {
+          type: "string",
+          description: "The policy ID to match (e.g. 'electronics', 'auto', 'bike', 'pet'). Use this when you know which policy applies from the trigger descriptions.",
+        },
         lossHypothesis: {
           type: "string",
           description: "1-sentence hypothesis of the loss",

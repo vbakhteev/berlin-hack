@@ -25,8 +25,9 @@ export const matchPolicy = mutation({
     sessionId: v.string(),
     lossHypothesis: v.string(),
     productCategory: v.optional(v.string()),
+    policyType: v.optional(v.string()),
   },
-  handler: async (ctx, { sessionId, lossHypothesis, productCategory }) => {
+  handler: async (ctx, { sessionId, lossHypothesis, productCategory, policyType }) => {
     const user = await getOrCreateUser(ctx);
     const claim = await ctx.db
       .query("claims")
@@ -41,44 +42,30 @@ export const matchPolicy = mutation({
       return { matched: false, reason: "No policies on file" };
     }
 
-    const hypothesis = lossHypothesis.toLowerCase();
-    const category = (productCategory ?? "").toLowerCase();
+    let matched: typeof availableTemplates[0] | undefined;
 
-    let matched = availableTemplates[0];
-    for (const t of availableTemplates) {
-      if (
-        t.id === "electronics" &&
-        (category.includes("laptop") || category.includes("phone") || category.includes("tablet") ||
-          category.includes("macbook") || hypothesis.includes("electronic") ||
-          hypothesis.includes("laptop") || hypothesis.includes("phone") || hypothesis.includes("screen"))
-      ) {
-        matched = t;
-        break;
+    if (policyType) {
+      matched = availableTemplates.find((t) => t.id === policyType);
+      if (!matched) {
+        return {
+          matched: false,
+          reason: `Policy type "${policyType}" is not in the caller's active policies. Active policies: ${activePolicyTypes.join(", ")}`,
+        };
       }
-      if (
-        t.id === "auto" &&
-        (hypothesis.includes("car") || hypothesis.includes("vehicle") || hypothesis.includes("auto") ||
-          hypothesis.includes("crash") || hypothesis.includes("accident") || hypothesis.includes("truck"))
-      ) {
-        matched = t;
-        break;
+    } else {
+      const hypothesis = lossHypothesis.toLowerCase();
+      const category = (productCategory ?? "").toLowerCase();
+      const text = hypothesis + " " + category;
+
+      for (const t of availableTemplates) {
+        const triggers = t.triggerExamples.toLowerCase().split(",").map((s) => s.trim());
+        if (triggers.some((trigger) => text.includes(trigger))) {
+          matched = t;
+          break;
+        }
       }
-      if (
-        t.id === "bike" &&
-        (hypothesis.includes("bike") || hypothesis.includes("bicycle") || hypothesis.includes("cycling") ||
-          hypothesis.includes("cycle"))
-      ) {
-        matched = t;
-        break;
-      }
-      if (
-        t.id === "pet" &&
-        (hypothesis.includes("pet") || hypothesis.includes("dog") || hypothesis.includes("cat") ||
-          hypothesis.includes("vet") || hypothesis.includes("animal"))
-      ) {
-        matched = t;
-        break;
-      }
+
+      if (!matched) matched = availableTemplates[0];
     }
 
     await ctx.db.patch(claim._id, {
@@ -138,6 +125,7 @@ export const checkCoverage = mutation({
       exclusions: template.exclusions,
       coverageLimitEur: template.coverageLimitEur ?? null,
       coverageSummary: template.coverageSummary,
+      requiresVisualInspection: template.requiresVisualInspection,
     };
   },
 });

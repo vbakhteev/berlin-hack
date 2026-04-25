@@ -7,6 +7,7 @@ export interface PolicyTemplate {
   emoji: string;
   title: string;
   description: string;
+  triggerExamples: string;
   voiceAgentContext: string;
   insurer: string;
   policyNumber: string;
@@ -24,6 +25,7 @@ export const POLICY_TEMPLATES: PolicyTemplate[] = [
     emoji: "🚗",
     title: "Car insurance",
     description: "Collision, theft, and accidental damage",
+    triggerExamples: "car, vehicle, truck, van, motorcycle, fender bender, collision, parking damage, hit and run, windshield crack, road accident, hail damage to car, someone hit my car, rear-ended, side-swiped, car was stolen, keyed, vandalized",
     voiceAgentContext:
       "This is a comprehensive car (Vollkasko) policy. The caller may be on a roadside or in a stressful post-accident situation — be calm, brief, and reassuring. Move quickly through the facts. " +
       "It covers collision damage, theft, vandalism, and weather events. " +
@@ -54,6 +56,7 @@ export const POLICY_TEMPLATES: PolicyTemplate[] = [
     emoji: "🐾",
     title: "Pet insurance",
     description: "Vet bills, surgery, and accidents",
+    triggerExamples: "dog, cat, pet, puppy, kitten, animal, vet visit, vet bill, surgery for pet, pet injury, swallowed something, limping, pet was hit by a car, emergency vet, pet is sick, pet needs operation",
     voiceAgentContext:
       "This is a pet health and accident insurance policy. It covers emergency vet visits, surgeries, diagnostic tests, and accident treatment. " +
       "There is no visual inspection for this policy — the vet will document the condition. " +
@@ -83,6 +86,7 @@ export const POLICY_TEMPLATES: PolicyTemplate[] = [
     emoji: "💻",
     title: "Electronics insurance",
     description: "Phones, laptops, tablets, and gadgets",
+    triggerExamples: "phone, laptop, tablet, MacBook, iPad, iPhone, Samsung, computer, monitor, camera, headphones, smartwatch, gaming console, e-reader, drone, cracked screen, water damage to device, dropped my phone, stolen laptop, broken charger port, spilled coffee on keyboard",
     voiceAgentContext:
       "This is the most common claim type — electronics accidental damage and theft. Callers typically have a cracked screen or water damage. " +
       "Visual inspection is required for damage claims — ask the caller to show the damaged device on camera. " +
@@ -114,6 +118,7 @@ export const POLICY_TEMPLATES: PolicyTemplate[] = [
     emoji: "🚲",
     title: "Bike insurance",
     description: "Theft and accidental damage for bicycles",
+    triggerExamples: "bicycle, bike, e-bike, road bike, mountain bike, cycling accident, bike was stolen, bike lock cut, bent wheel, crashed my bike, fell off my bike, bike hit by car, stolen e-bike",
     voiceAgentContext:
       "This is a bicycle theft and accidental damage policy. It covers road bikes, mountain bikes, and e-bikes. " +
       "For theft claims: a police report is mandatory and the bike must have been locked with a certified lock at the time of theft. " +

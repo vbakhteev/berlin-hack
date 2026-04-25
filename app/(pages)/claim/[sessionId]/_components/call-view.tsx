@@ -27,14 +27,17 @@ export function CallView({ sessionId }: { sessionId: string }) {
 
   const transcriptLinesRef = useRef<string[]>([]);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [gpsCoords, setGpsCoords] = useState<GeolocationCoordinates | null>(null);
+  const [gpsCoords, setGpsCoords] = useState<GeolocationCoordinates | null>(
+    null
+  );
   const [inspectionHint, setInspectionHint] = useState<string | undefined>();
   const [hasConnected, setHasConnected] = useState(false);
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [showCameraOverlay, setShowCameraOverlay] = useState(false);
   // R3 belt-and-suspenders: show inspection button immediately on tool call, before Convex round-trip
-  const [optimisticInspectionRequested, setOptimisticInspectionRequested] = useState(false);
+  const [optimisticInspectionRequested, setOptimisticInspectionRequested] =
+    useState(false);
 
   // Request location permission before the call starts
   useEffect(() => {
@@ -64,7 +67,11 @@ export function CallView({ sessionId }: { sessionId: string }) {
   }, []);
 
   const onToolCall = useCallback(
-    async (call: { id: string; name: string; args: Record<string, unknown> }) => {
+    async (call: {
+      id: string;
+      name: string;
+      args: Record<string, unknown>;
+    }) => {
       // Store inspection hint + show button optimistically BEFORE Convex round-trip (R3 mitigation)
       if (call.name === "request_visual_inspection") {
         setOptimisticInspectionRequested(true);
@@ -87,32 +94,32 @@ export function CallView({ sessionId }: { sessionId: string }) {
     [handleToolCall, claim?._id, sessionId, router, runTavilyAction]
   );
 
-  const { state, isVideoActive, connect, disconnect, startVideo, stopVideo } = useGeminiLive({
-    systemPrompt:
-      currentUser
+  const { state, isVideoActive, connect, disconnect, startVideo, stopVideo } =
+    useGeminiLive({
+      systemPrompt: currentUser
         ? buildSystemPrompt({
             name: currentUser.name,
             email: currentUser.email,
             activePolicyTypes: currentUser.activePolicyTypes ?? [],
           })
         : "You are Lina, a helpful insurance claims assistant.",
-    onToolCall,
-    onTranscript: (text, role) => {
-      const prefix = role === "user" ? "[User]: " : "[Lina]: ";
-      const lines = transcriptLinesRef.current;
-      const last = lines[lines.length - 1];
-      if (last?.startsWith(prefix)) {
-        lines[lines.length - 1] = last.trimEnd() + " " + text.trim();
-      } else {
-        lines.push(prefix + text);
-      }
-      if (role === "model") setIsSpeaking(true);
-      setTimeout(() => setIsSpeaking(false), 2000);
-    },
-    onStateChange: (s) => {
-      if (s === "connected") setHasConnected(true);
-    },
-  });
+      onToolCall,
+      onTranscript: (text, role) => {
+        const prefix = role === "user" ? "[User]: " : "[Lina]: ";
+        const lines = transcriptLinesRef.current;
+        const last = lines[lines.length - 1];
+        if (last?.startsWith(prefix)) {
+          lines[lines.length - 1] = last.trimEnd() + " " + text.trim();
+        } else {
+          lines.push(prefix + text);
+        }
+        if (role === "model") setIsSpeaking(true);
+        setTimeout(() => setIsSpeaking(false), 2000);
+      },
+      onStateChange: (s) => {
+        if (s === "connected") setHasConnected(true);
+      },
+    });
 
   // Auto-connect removed — iOS Safari requires getUserMedia to be triggered
   // by a direct user gesture. connect() is called from the "Start call" button.
@@ -163,7 +170,9 @@ export function CallView({ sessionId }: { sessionId: string }) {
     }
   }, [stopVideo, claim?._id, generateUploadUrl, attachMedia]);
 
-  const inspectionRequested = (claim?.visualInspectionRequested || optimisticInspectionRequested) && !showCameraOverlay;
+  const inspectionRequested =
+    (claim?.visualInspectionRequested || optimisticInspectionRequested) &&
+    !showCameraOverlay;
 
   const handleStartCall = () => {
     if (apiKey) connect(apiKey);
@@ -172,19 +181,21 @@ export function CallView({ sessionId }: { sessionId: string }) {
   const statusText = tokenError
     ? "GEMINI_API_KEY not set — add it to .env.local"
     : state === "idle" && apiKey && currentUser
-    ? "Ready — tap Start call"
-    : state === "connecting"
-    ? "Connecting to Lina…"
-    : state === "connected"
-    ? "Connected · Lina is listening"
-    : state === "ended"
-    ? "Call ended"
-    : state === "error"
-    ? "Connection error"
-    : "Initializing…";
+      ? "Ready — tap Start call"
+      : state === "connecting"
+        ? "Connecting to Lina…"
+        : state === "connected"
+          ? "Connected · Lina is listening"
+          : state === "ended"
+            ? "Call ended"
+            : state === "error"
+              ? "Connection error"
+              : "Initializing…";
 
   return (
-    <main className={`min-h-[100dvh] bg-background flex flex-col ${state === "connecting" || state === "connected" ? "overflow-hidden" : "overflow-x-hidden"}`}>
+    <main
+      className={`min-h-[100dvh] bg-background flex flex-col ${state === "connecting" || state === "connected" ? "overflow-hidden" : "overflow-x-hidden"}`}
+    >
       {/* Visual inspection overlay */}
       <InspectionOverlay
         isActive={showCameraOverlay}
@@ -193,24 +204,6 @@ export function CallView({ sessionId }: { sessionId: string }) {
         onStop={handleStopCamera}
         onEndCall={handleEndCall}
       />
-
-      {/* Inspection button overlay (appears when tool fires but camera not yet open) */}
-      {inspectionRequested && (
-        <div className="fixed inset-0 bg-black/60 z-40 flex items-end px-6 pt-6" style={{ paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }}>
-          <div className="w-full max-w-lg mx-auto space-y-4">
-            <p className="text-white text-center font-medium">
-              {inspectionHint ?? "Show the damage to Lina"}
-            </p>
-            <Button
-              size="lg"
-              className="w-full h-14 text-base font-semibold bg-primary"
-              onClick={() => setShowCameraOverlay(true)}
-            >
-              Start visual inspection
-            </Button>
-          </div>
-        </div>
-      )}
 
       {/* Upper: status + orb + claim card */}
       <div className="flex flex-col flex-1 px-4 pt-4 max-w-lg mx-auto w-full min-w-0">
@@ -236,21 +229,39 @@ export function CallView({ sessionId }: { sessionId: string }) {
       </div>
 
       {/* Bottom CTA — min 48px, clears iPhone home indicator */}
-      <div className="px-4 pt-4 max-w-lg mx-auto w-full" style={{ paddingBottom: 'calc(40px + env(safe-area-inset-bottom, 0px))' }}>
+      <div
+        className="px-4 pt-4 max-w-lg mx-auto w-full"
+        style={{
+          paddingBottom: "calc(40px + env(safe-area-inset-bottom, 0px))",
+        }}
+      >
         <Button
           size="lg"
           className="w-full h-14 text-base"
-          variant={state === "connected" ? "destructive" : state === "idle" && !!apiKey && !!currentUser ? "default" : "outline"}
-          disabled={state === "connecting" || (!tokenError && (!apiKey || !currentUser) && state === "idle")}
-          onClick={state === "idle" && !!apiKey && !!currentUser ? handleStartCall : handleEndCall}
+          variant={
+            state === "connected"
+              ? "destructive"
+              : state === "idle" && !!apiKey && !!currentUser
+                ? "default"
+                : "outline"
+          }
+          disabled={
+            state === "connecting" ||
+            (!tokenError && (!apiKey || !currentUser) && state === "idle")
+          }
+          onClick={
+            state === "idle" && !!apiKey && !!currentUser
+              ? handleStartCall
+              : handleEndCall
+          }
         >
           {state === "connected"
             ? "End call"
             : state === "idle" && !!apiKey && !!currentUser
-            ? "Start call"
-            : state === "connecting"
-            ? "Connecting…"
-            : "Back"}
+              ? "Start call"
+              : state === "connecting"
+                ? "Connecting…"
+                : "Back"}
         </Button>
       </div>
     </main>

@@ -9,6 +9,7 @@ import { useToolBridge } from "@/components/call/use-tool-bridge";
 import { buildSystemPrompt } from "@/lib/agent/system-prompt";
 import { ClaimCardLive } from "@/app/(pages)/claim/[sessionId]/_components/claim-card-live";
 import { AudioOrb } from "@/app/(pages)/claim/[sessionId]/_components/audio-orb";
+import { CameraIcon, MicIcon, MicOffIcon, PhoneOffIcon } from "lucide-react";
 
 interface CallScreenProps {
   sessionId: string;
@@ -35,7 +36,9 @@ export function CallScreen({ sessionId }: CallScreenProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [gpsCoords, setGpsCoords] = useState<GeolocationCoordinates | null>(null);
+  const [gpsCoords, setGpsCoords] = useState<GeolocationCoordinates | null>(
+    null
+  );
   const [showVideoButton, setShowVideoButton] = useState(false);
   const [inspectionHint, setInspectionHint] = useState<string | undefined>();
   const [hasConnected, setHasConnected] = useState(false);
@@ -69,7 +72,11 @@ export function CallScreen({ sessionId }: CallScreenProps) {
   }, []);
 
   const onToolCall = useCallback(
-    async (call: { id: string; name: string; args: Record<string, unknown> }) => {
+    async (call: {
+      id: string;
+      name: string;
+      args: Record<string, unknown>;
+    }) => {
       if (call.name === "request_visual_inspection") {
         setShowVideoButton(true);
         if (call.args.hint) setInspectionHint(call.args.hint as string);
@@ -87,7 +94,16 @@ export function CallScreen({ sessionId }: CallScreenProps) {
     [handleToolCall, claim?._id, sessionId, router, runTavilyAction]
   );
 
-  const { state, isVideoActive, connect, disconnect, startVideo, stopVideo, setMuted, isMuted } = useLiveSession({
+  const {
+    state,
+    isVideoActive,
+    connect,
+    disconnect,
+    startVideo,
+    stopVideo,
+    setMuted,
+    isMuted,
+  } = useLiveSession({
     systemPrompt: currentUser
       ? buildSystemPrompt({
           name: currentUser.name,
@@ -186,13 +202,14 @@ export function CallScreen({ sessionId }: CallScreenProps) {
           </>
         )}
 
-        {(showVideoButton || claim?.visualInspectionRequested) && !isVideoActive && (
-          <div className="bg-white/10 backdrop-blur-md rounded-xl px-4 py-3 mt-8 max-w-sm">
-            <p className="text-white text-sm text-center">
-              {inspectionHint || "Tap the camera button to show the damage"}
-            </p>
-          </div>
-        )}
+        {(showVideoButton || claim?.visualInspectionRequested) &&
+          !isVideoActive && (
+            <div className="bg-white/10 backdrop-blur-md rounded-xl px-4 py-3 mt-8 max-w-sm">
+              <p className="text-white text-sm text-center">
+                {inspectionHint || "Tap the camera button to show the damage"}
+              </p>
+            </div>
+          )}
       </div>
 
       <div
@@ -230,38 +247,9 @@ export function CallScreen({ sessionId }: CallScreenProps) {
               }`}
             >
               {isMuted ? (
-                <svg
-                  className="w-6 h-6 text-black"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"
-                  />
-                </svg>
+                <MicOffIcon className="text-black" />
               ) : (
-                <svg
-                  className="w-6 h-6 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                  />
-                </svg>
+                <MicIcon className="text-white" />
               )}
             </button>
 
@@ -269,48 +257,29 @@ export function CallScreen({ sessionId }: CallScreenProps) {
               onClick={handleEndCall}
               className="w-14 h-14 rounded-full bg-red-500 flex items-center justify-center"
             >
-              <svg
-                className="w-6 h-6 text-white rotate-[135deg]"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                />
-              </svg>
+              <PhoneOffIcon className="text-white" />
             </button>
 
             {(showVideoButton || claim?.visualInspectionRequested) && (
-              <button
-                onClick={() => {
-                  if (isVideoActive) {
-                    stopVideo();
-                  } else if (videoRef.current) {
-                    startVideo(videoRef.current);
-                  }
-                }}
-                className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${
-                  isVideoActive ? "bg-blue-500" : "bg-white/20"
-                }`}
-              >
-                <svg
-                  className="w-6 h-6 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
+              <div className="relative">
+                {!isVideoActive && (
+                  <div className="absolute -inset-1 rounded-full bg-green-500/50 animate-ping" />
+                )}
+                <button
+                  onClick={() => {
+                    if (isVideoActive) {
+                      stopVideo();
+                    } else if (videoRef.current) {
+                      startVideo(videoRef.current);
+                    }
+                  }}
+                  className={`relative w-14 h-14 rounded-full flex items-center justify-center transition-colors ${
+                    isVideoActive ? "bg-blue-500" : "bg-green-600 shadow-[0_0_20px_rgba(34,197,94,0.5)]"
+                  }`}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                  />
-                </svg>
-              </button>
+                  <CameraIcon className="text-white" />
+                </button>
+              </div>
             )}
           </div>
         )}

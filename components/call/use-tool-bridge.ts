@@ -22,6 +22,7 @@ export function useToolBridge(sessionId: string) {
             sessionId,
             lossHypothesis: args.lossHypothesis as string,
             productCategory: args.productCategory as string | undefined,
+            policyType: args.policyType as string | undefined,
           });
 
         case "check_coverage":
