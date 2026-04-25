@@ -89,3 +89,26 @@ Winzige zufällige Timing-Variations zwischen TTS-Wörtern (+/- 20-50ms). Macht 
 5. Mikrofon-Distanz ← mittel
 6. Rest ← nice-to-have
 
+
+---
+
+## 📞 Call Start — Dial Tone + Connect Crackle
+
+**Dial tone:** Short 1-2 beep dial tone before Lina picks up. Not a full ring — just enough to feel like a real call connecting.
+
+**Connect crackle:** Tiny headset crackle/pop (50-80ms) right as the call connects. Like the agent just plugged in their headset or adjusted the cable. Very subtle.
+
+**Mid-call cable rustle:** 1-2x during the call, a brief headset noise (cable being moved). Random timing, very short. Makes it feel like a real person adjusting their equipment.
+
+**Where:** `use-gemini-live.ts` — play audio assets at call start + random intervals
+
+**Assets needed:** 2-3 short audio files (dial beep, connect crackle, cable rustle) — can find royalty-free or generate with Audacity
+
+---
+
+## ⏱️ Call Timer Display
+
+Show elapsed call time on the call screen — exactly like a real phone call UI.
+Format: `0:00` counting up from call start.
+**Where:** `call-view.tsx` — simple timer component, starts on connect
+
