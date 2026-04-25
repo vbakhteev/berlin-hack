@@ -72,6 +72,7 @@ export class AudioPlayer {
   private sampleRate: number;
   private responseStarted = false;
   private ambientSource: AudioBufferSourceNode | null = null;
+  private firstResponseNotBefore = 0; // absolute ms timestamp — don't play before this
   public onPlaybackStart: (() => void) | null = null;
   public onPlaybackEnd: (() => void) | null = null;
 
@@ -101,16 +102,17 @@ export class AudioPlayer {
       if (!this.responseStarted) {
         this.responseStarted = true;
         // Bimodal delay — humans are sometimes fast, sometimes slow. Never uniform.
-        // 30%: quick reply (150–400ms) — answer already known
-        // 50%: normal thinking (600–1400ms)
-        // 20%: longer pause (2200–3800ms) — looking something up / typing
+        // 30%: quick reply (150–400ms), 50%: normal (600–1400ms), 20%: long (2200–3800ms)
         const r = Math.random();
-        const delay = r < 0.3
+        const naturalDelay = r < 0.3
           ? 150 + Math.random() * 250
           : r < 0.8
             ? 600 + Math.random() * 800
             : 2200 + Math.random() * 1600;
-        setTimeout(() => this.playNext(), delay);
+        // Ensure we never play before the dial tone sequence finishes
+        const waitUntil = Math.max(naturalDelay, this.firstResponseNotBefore - Date.now());
+        this.firstResponseNotBefore = 0;
+        setTimeout(() => this.playNext(), Math.max(0, waitUntil));
       }
     }
   }
@@ -161,39 +163,50 @@ export class AudioPlayer {
     source.start();
   }
 
-  // Dial tone (425Hz — German standard) followed by headset connect crackle
+  // German Rufton: 3 rings (425Hz, 0.65s on / 1.3s off), short pause, headset crackle
+  // Ring 1 @ 0.0s, Ring 2 @ 1.95s, Ring 3 @ 3.9s, crackle @ 5.0s
+  // Sets firstResponseNotBefore so Lina's voice never overlaps the ringing.
   playDialToneAndCrackle(): void {
     if (!this.audioContext) this.init();
     const ctx = this.audioContext!;
+    const rate = ctx.sampleRate;
+    const t0 = ctx.currentTime;
 
-    // 425Hz dial tone, 0.8s
-    const toneRate = ctx.sampleRate;
-    const toneSamples = Math.floor(toneRate * 0.8);
-    const toneBuf = ctx.createBuffer(1, toneSamples, toneRate);
-    const toneData = toneBuf.getChannelData(0);
-    for (let i = 0; i < toneSamples; i++) {
-      const fade = i < 800 ? i / 800 : i > toneSamples - 800 ? (toneSamples - i) / 800 : 1;
-      toneData[i] = 0.25 * Math.sin(2 * Math.PI * 425 * (i / toneRate)) * fade;
+    const ringDuration = 0.65;
+    const ringGap = 1.3; // silence between rings
+    const ringOffsets = [0, ringDuration + ringGap, (ringDuration + ringGap) * 2];
+    const crackleOffset = (ringDuration + ringGap) * 3 - ringGap + 0.45; // ~5.0s
+
+    // Build one ring buffer, reuse for all 3
+    const ringSamples = Math.floor(rate * ringDuration);
+    const ringBuf = ctx.createBuffer(1, ringSamples, rate);
+    const ringData = ringBuf.getChannelData(0);
+    for (let i = 0; i < ringSamples; i++) {
+      const fade = i < 400 ? i / 400 : i > ringSamples - 400 ? (ringSamples - i) / 400 : 1;
+      ringData[i] = 0.28 * Math.sin(2 * Math.PI * 425 * (i / rate)) * fade;
     }
 
-    // Short crackle burst — headset plugging in
-    const crackleSamples = Math.floor(toneRate * 0.07);
-    const crackleBuf = ctx.createBuffer(1, crackleSamples, toneRate);
+    for (const offset of ringOffsets) {
+      const src = ctx.createBufferSource();
+      src.buffer = ringBuf;
+      src.connect(ctx.destination);
+      src.start(t0 + offset);
+    }
+
+    // Crackle burst — headset pickup click
+    const crackleSamples = Math.floor(rate * 0.08);
+    const crackleBuf = ctx.createBuffer(1, crackleSamples, rate);
     const crackleData = crackleBuf.getChannelData(0);
     for (let i = 0; i < crackleSamples; i++) {
-      crackleData[i] = (Math.random() * 2 - 1) * 0.2 * Math.pow(1 - i / crackleSamples, 3);
+      crackleData[i] = (Math.random() * 2 - 1) * 0.25 * Math.pow(1 - i / crackleSamples, 2.5);
     }
-
-    const toneSource = ctx.createBufferSource();
-    toneSource.buffer = toneBuf;
-    toneSource.connect(ctx.destination);
-    toneSource.start();
-
     const crackleSource = ctx.createBufferSource();
     crackleSource.buffer = crackleBuf;
     crackleSource.connect(ctx.destination);
-    // Crackle plays right after tone ends
-    crackleSource.start(ctx.currentTime + 0.85);
+    crackleSource.start(t0 + crackleOffset);
+
+    // Block first response until 600ms after crackle — Lina "picks up" then speaks
+    this.firstResponseNotBefore = Date.now() + (crackleOffset + 0.6) * 1000;
   }
 
   // Quiet keyboard typing burst — played during tool calls (Lina is "entering data")
