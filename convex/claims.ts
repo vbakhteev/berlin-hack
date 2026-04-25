@@ -1,3 +1,17 @@
+/*
+ * Claim status lifecycle:
+ *
+ *   "call"      – created by claims.create; active voice call in progress
+ *       ↓ (whichever fires first — exactly one schedules Tavily)
+ *   "draft"     – via tools.finalizeClaim (AI tool call): sets finalizedAt + schedules Tavily
+ *                 OR via claims.endCall (frontend on call end): schedules Tavily only when
+ *                 finalizedAt is absent (i.e. finalizeClaim did not run during the call)
+ *       ↓
+ *   "in_review" – via claims.submit (user submits draft form)
+ *       ↓
+ *   "accepted"  – via claims.approveClaim (admin action, sends approval email)
+ *   "rejected"  – via claims.rejectClaim (admin action, sends rejection email)
+ */
 import { action, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
 import { v } from "convex/values";
@@ -140,7 +154,13 @@ export const saveGpsLocation = mutation({
 export const endCall = mutation({
   args: { claimId: v.id("claims") },
   handler: async (ctx, { claimId }) => {
+    const claim = await ctx.db.get(claimId);
+    if (!claim) throw new Error("Claim not found");
     await ctx.db.patch(claimId, { status: "draft", stage: "closed" });
+    // Schedule Tavily only when finalizeClaim (tools.ts) hasn't already done so
+    if (!claim.finalizedAt) {
+      await ctx.scheduler.runAfter(0, api.tavily.researchReplacementPrice, { claimId });
+    }
   },
 });
 
