@@ -13,3 +13,19 @@
 
 **Open:** No blockers. All 4 DOD items complete. Status report written to docs/agent-messages/2026-04-25-research-to-konstantin-done.md.
 
+
+---
+
+## 2026-04-25 — next-research-2 brief complete
+
+**Brief:** Customer guidance scripts for Lina — per-policy fallback lines and scaffolds.
+
+**Shipped:**
+- `docs/customer-guidance-scripts.md`: full guidance scripts for electronics, auto, pet, bike — primary questions with know/don't-know branches, customer scaffolds, edge cases, wrong-policy handlers
+- `convex/policyTemplates.ts`: all 4 `voiceAgentContext` fields enriched with `GUIDANCE SCAFFOLDS` sections covering the key "I don't know" scenarios, edge cases, and empathetic handling rules
+
+**Quality bar hit:** Scripts written at senior German claims handler register — warm, specific, no bureaucratic "please provide." Scaffold lines tested against the bad/good examples from the brief.
+
+**Commits:** 63e054d, ad93f75
+
+**Status report:** docs/agent-messages/2026-04-25-research-to-konstantin-guidance-done.md
