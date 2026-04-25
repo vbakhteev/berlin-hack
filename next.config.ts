@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  reactStrictMode: false, // strict mode double-mounts tear WebSocket connections
   reactCompiler: true,
   images: {
     remotePatterns: [

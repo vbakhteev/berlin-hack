@@ -1,22 +1,124 @@
 "use client";
 
-import { useClerk } from "@clerk/nextjs";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { useUser } from "@clerk/nextjs";
+
+const nanoid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+const STATUS_COLORS: Record<string, string> = {
+  active: "bg-blue-500",
+  awaiting_documentation: "bg-yellow-500",
+  submitted: "bg-green-500",
+  estimating: "bg-purple-500",
+  ready_for_review: "bg-emerald-500",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  active: "Active",
+  awaiting_documentation: "Awaiting docs",
+  submitted: "Submitted",
+  estimating: "Estimating",
+  ready_for_review: "Ready for review",
+};
 
 export default function DashboardPage() {
-  const { signOut } = useClerk();
+  const { user } = useUser();
+  const claims = useQuery(api.claims.byUser);
+  const currentUser = useQuery(api.users.currentUser);
+  const createClaim = useMutation(api.claims.create);
   const router = useRouter();
 
+  const handleOpenClaim = async () => {
+    const sessionId = nanoid();
+    await createClaim({ sessionId });
+    router.push(`/claim/${sessionId}`);
+  };
+
+  if (currentUser && !currentUser.onboardingComplete) {
+    router.replace("/onboarding");
+    return null;
+  }
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8">
-      <h1 className="text-4xl font-bold">Dashboard</h1>
-      <p className="mt-4 text-muted-foreground">You are authenticated.</p>
-      <button
-        onClick={() => signOut(() => router.push("/"))}
-        className="mt-6 rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
-      >
-        Sign out
-      </button>
+    <main className="min-h-screen bg-background p-4 pb-8">
+      <div className="mx-auto max-w-lg">
+        <div className="mb-6 pt-4">
+          <p className="text-sm text-muted-foreground">Welcome back</p>
+          <h1 className="text-2xl font-bold">{user?.firstName ?? "Friend"}</h1>
+        </div>
+
+        {/* Primary CTA */}
+        <Button
+          size="lg"
+          className="w-full h-16 text-lg font-semibold mb-3 bg-primary"
+          onClick={handleOpenClaim}
+        >
+          Open a claim
+        </Button>
+
+        <Button
+          variant="outline"
+          className="w-full mb-6"
+          onClick={() => router.push("/plans")}
+        >
+          My plans
+        </Button>
+
+        {/* Claims list */}
+        <div className="space-y-3">
+          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+            Recent claims
+          </h2>
+          {claims === undefined ? (
+            <div className="space-y-2">
+              {[1, 2].map((i) => (
+                <div key={i} className="h-20 rounded-lg bg-muted animate-pulse" />
+              ))}
+            </div>
+          ) : claims.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground text-sm">
+                No claims yet. Tap above to open your first claim.
+              </CardContent>
+            </Card>
+          ) : (
+            claims.map((claim) => (
+              <Card
+                key={claim._id}
+                className="cursor-pointer hover:bg-accent transition-colors"
+                onClick={() =>
+                  claim.status === "active"
+                    ? router.push(`/claim/${claim.sessionId}`)
+                    : router.push(`/claim/${claim.sessionId}/confirm`)
+                }
+              >
+                <CardContent className="py-4 px-4 flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm">
+                      {claim.productBrandModel ?? claim.incidentType ?? "Claim"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {claim.incidentDate ?? new Date(claim.createdAt).toLocaleDateString()}
+                      {claim.damageSummary ? ` · ${claim.damageSummary.slice(0, 40)}` : ""}
+                    </p>
+                  </div>
+                  <Badge
+                    className={`text-white text-xs ${STATUS_COLORS[claim.status] ?? "bg-gray-400"}`}
+                  >
+                    {STATUS_LABELS[claim.status] ?? claim.status}
+                  </Badge>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+
+      </div>
     </main>
   );
 }
