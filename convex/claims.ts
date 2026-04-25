@@ -4,10 +4,15 @@ import { v } from "convex/values";
 export const bySession = query({
   args: { sessionId: v.string() },
   handler: async (ctx, { sessionId }) => {
-    return ctx.db
+    const claim = await ctx.db
       .query("claims")
       .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
       .unique();
+    if (!claim) return null;
+    const policy = claim.matchedPolicyId
+      ? await ctx.db.get(claim.matchedPolicyId)
+      : null;
+    return { ...claim, policy };
   },
 });
 
@@ -113,6 +118,29 @@ export const submit = mutation({
   args: { claimId: v.id("claims") },
   handler: async (ctx, { claimId }) => {
     await ctx.db.patch(claimId, { status: "in_review" });
+    return { ok: true };
+  },
+});
+
+export const updateDraftFields = mutation({
+  args: {
+    claimId: v.id("claims"),
+    incidentType: v.optional(v.string()),
+    incidentDate: v.optional(v.string()),
+    incidentLocation: v.optional(v.string()),
+    productCategory: v.optional(v.string()),
+    productBrandModel: v.optional(v.string()),
+    damageSummary: v.optional(v.string()),
+    estimatedDamageEur: v.optional(v.number()),
+  },
+  handler: async (ctx, { claimId, ...fields }) => {
+    const patch: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(fields)) {
+      if (value !== undefined) patch[key] = value;
+    }
+    if (Object.keys(patch).length > 0) {
+      await ctx.db.patch(claimId, patch);
+    }
     return { ok: true };
   },
 });
