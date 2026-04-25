@@ -101,7 +101,7 @@ export function useGeminiLive({
               responseModalities: ["AUDIO"],
               speechConfig: {
                 voiceConfig: {
-                  prebuiltVoiceConfig: { voiceName: "Aoede" },
+                  prebuiltVoiceConfig: { voiceName: "Kore" },
                 },
               },
             },
@@ -127,9 +127,10 @@ export function useGeminiLive({
 
         console.debug("[GeminiLive]", JSON.stringify(data).slice(0, 200));
 
-        // Setup handshake complete → start mic
+        // Setup handshake complete → play dial tone + crackle, then start mic
         if (data.setupComplete !== undefined) {
           updateState("connected");
+          audioPlayerRef.current?.playDialToneAndCrackle();
           const pipe = new AudioPipeline();
           audioPipelineRef.current = pipe;
           try {
@@ -167,6 +168,7 @@ export function useGeminiLive({
 
         // Tool calls from model
         if (data.toolCall?.functionCalls) {
+          audioPlayerRef.current?.playTypingBurst(2000);
           for (const fc of data.toolCall.functionCalls) {
             const call: ToolCallPayload = {
               id: fc.id,

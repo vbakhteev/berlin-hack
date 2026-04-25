@@ -27,6 +27,8 @@ export function CallView({ sessionId }: { sessionId: string }) {
 
   const transcriptLinesRef = useRef<string[]>([]);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [callSeconds, setCallSeconds] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [gpsCoords, setGpsCoords] = useState<GeolocationCoordinates | null>(
     null
   );
@@ -117,7 +119,17 @@ export function CallView({ sessionId }: { sessionId: string }) {
         setTimeout(() => setIsSpeaking(false), 2000);
       },
       onStateChange: (s) => {
-        if (s === "connected") setHasConnected(true);
+        if (s === "connected") {
+          setHasConnected(true);
+          setCallSeconds(0);
+          timerRef.current = setInterval(() => setCallSeconds((n) => n + 1), 1000);
+        }
+        if (s === "ended" || s === "error") {
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+        }
       },
     });
 
@@ -208,8 +220,14 @@ export function CallView({ sessionId }: { sessionId: string }) {
       {/* Upper: status + orb + claim card */}
       <div className="flex flex-col flex-1 px-4 pt-4 max-w-lg mx-auto w-full min-w-0">
         {/* Status line */}
-        <div className="py-3 mb-2">
+        <div className="py-3 mb-2 flex items-center justify-between">
           <p className="text-xs text-muted-foreground">{statusText}</p>
+          {state === "connected" && (
+            <p className="text-xs font-mono text-muted-foreground tabular-nums">
+              {String(Math.floor(callSeconds / 60)).padStart(2, "0")}:
+              {String(callSeconds % 60).padStart(2, "0")}
+            </p>
+          )}
         </div>
 
         {/* Audio orb — upper half */}
