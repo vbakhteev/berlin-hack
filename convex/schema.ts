@@ -8,7 +8,6 @@ export default defineSchema({
     name: v.optional(v.string()),
     tokenIdentifier: v.string(),
     onboardingComplete: v.optional(v.boolean()),
-    preferredLanguage: v.optional(v.union(v.literal("en"), v.literal("de"))),
     activePolicyTypes: v.optional(v.array(v.string())),
   }).index("by_token", ["tokenIdentifier"]),
 
@@ -32,7 +31,11 @@ export default defineSchema({
     ),
     visualInspectionRequested: v.boolean(),
     visualInspectionRequestedBy: v.optional(
-      v.union(v.literal("policy_required"), v.literal("user_offered"), v.literal("agent_suggested"))
+      v.union(
+        v.literal("policy_required"),
+        v.literal("user_offered"),
+        v.literal("agent_suggested")
+      )
     ),
     incidentType: v.optional(v.string()),
     incidentDate: v.optional(v.string()),

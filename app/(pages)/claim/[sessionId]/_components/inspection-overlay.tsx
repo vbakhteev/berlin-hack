@@ -22,7 +22,10 @@ export function InspectionOverlay({
     if (isActive && videoRef.current) {
       onStartCamera(videoRef.current);
     }
-  }, [isActive, onStartCamera]);
+    return () => {
+      if (isActive) onStop();
+    };
+  }, [isActive, onStartCamera, onStop]);
 
   if (!isActive) return null;
 
@@ -35,7 +38,10 @@ export function InspectionOverlay({
         playsInline
         autoPlay
       />
-      <div className="p-6 bg-black/80 flex flex-col items-center gap-4">
+      <div
+        className="p-6 bg-black/80 flex flex-col items-center gap-4"
+        style={{ paddingBottom: "calc(24px + env(safe-area-inset-bottom, 0px))" }}
+      >
         {hint && (
           <p className="text-white text-sm text-center font-medium">{hint}</p>
         )}

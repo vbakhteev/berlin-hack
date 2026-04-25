@@ -13,11 +13,18 @@ export class VideoPipeline {
     this.onFrame = onFrame;
     this.videoEl = videoElement;
 
-    this.mediaStream = await navigator.mediaDevices.getUserMedia({
+    const stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } },
       audio: false,
     });
 
+    // stop() may have been called while the camera permission dialog was open
+    if (this.videoEl === null) {
+      stream.getTracks().forEach((t) => t.stop());
+      return;
+    }
+
+    this.mediaStream = stream;
     videoElement.srcObject = this.mediaStream;
     await videoElement.play();
 

@@ -423,60 +423,76 @@ export function ReviewView({ sessionId }: { sessionId: string }) {
             </Card>
 
             {/* Documents */}
-            <Card className="mb-6">
-                <CardContent className="py-4 px-4">
-                  <p className="text-sm font-semibold mb-1">
-                    Documents we need
-                  </p>
-                  <p className="text-xs text-muted-foreground mb-4">
-                    {storedUploads.length > 0
-                      ? "Lina asked for these to finish your claim."
-                      : "Lina didn't request specific documents. Attach anything that supports your claim."}
-                  </p>
-                  <div className="divide-y divide-border/50">
-                    {requiredUploads.map((item) => {
-                      const uploaded = item.status === "uploaded";
-                      const busy = uploadingId === item.id;
-                      const label =
-                        item.description?.trim() || item.title;
-                      return (
-                        <div
-                          key={item.id}
-                          className="py-3 first:pt-0 last:pb-0"
-                        >
-                          <div className="flex items-baseline justify-between gap-2 mb-2">
-                            <p className="text-sm font-medium">{label}</p>
+            {(() => {
+              const visibleUploads = isSubmitted
+                ? requiredUploads.filter((u) => u.status === "uploaded")
+                : requiredUploads;
+              if (visibleUploads.length === 0) return null;
+              return (
+                <Card className="mb-6">
+                  <CardContent className="py-4 px-4">
+                    <p className="text-sm font-semibold mb-1">
+                      {isSubmitted ? "Attached documents" : "Documents we need"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      {isSubmitted
+                        ? "Files attached to your claim."
+                        : storedUploads.length > 0
+                        ? "Lina asked for these to finish your claim."
+                        : "Lina didn't request specific documents. Attach anything that supports your claim."}
+                    </p>
+                    <div className="divide-y divide-border/50">
+                      {visibleUploads.map((item) => {
+                        const uploaded = item.status === "uploaded";
+                        const busy = uploadingId === item.id;
+                        const label = item.description?.trim() || item.title;
+                        return (
+                          <div
+                            key={item.id}
+                            className="py-3 first:pt-0 last:pb-0"
+                          >
+                            <p className="text-sm font-medium mb-2">{label}</p>
                             {uploaded ? (
-                              <span className="text-xs font-medium text-green-600 dark:text-green-500 shrink-0">
-                                ✓ Uploaded
-                              </span>
+                              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+                                <svg className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <span className="text-xs text-green-800 dark:text-green-300 truncate flex-1">
+                                  {fileNames[item.id] ?? "File received"}
+                                </span>
+                                <svg className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              </div>
                             ) : (
-                              <span className="text-xs text-muted-foreground shrink-0">
-                                {busy ? "Uploading…" : "Pending"}
-                              </span>
+                              <label className="block cursor-pointer">
+                                <input
+                                  type="file"
+                                  disabled={busy}
+                                  className="sr-only"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleFileChange(item, file);
+                                  }}
+                                />
+                                <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border hover:border-primary/50 hover:bg-muted/40 transition-colors">
+                                  <svg className="w-4 h-4 text-muted-foreground shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                  </svg>
+                                  <span className="text-xs text-muted-foreground">
+                                    {busy ? "Uploading…" : "Choose file to upload"}
+                                  </span>
+                                </div>
+                              </label>
                             )}
                           </div>
-                          {uploaded ? (
-                            <p className="text-xs text-muted-foreground truncate">
-                              {fileNames[item.id] ?? "File received"}
-                            </p>
-                          ) : (
-                            <input
-                              type="file"
-                              disabled={busy}
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) handleFileChange(item, file);
-                              }}
-                              className="block w-full text-xs text-muted-foreground file:mr-3 file:rounded-md file:border file:border-border/50 file:bg-background file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-foreground hover:file:bg-muted"
-                            />
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-            </Card>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })()}
 
             {/* CTAs */}
             <div className="space-y-3">

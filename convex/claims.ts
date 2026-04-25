@@ -136,6 +136,48 @@ export const saveGpsLocation = mutation({
   },
 });
 
+export const allClaims = query({
+  args: {},
+  handler: async (ctx) => {
+    const claims = await ctx.db.query("claims").order("desc").collect();
+    return Promise.all(
+      claims.map(async (claim) => {
+        const user = await ctx.db.get(claim.userId);
+        return { ...claim, user };
+      })
+    );
+  },
+});
+
+export const byIdInternal = query({
+  args: { claimId: v.id("claims") },
+  handler: async (ctx, { claimId }) => {
+    const claim = await ctx.db.get(claimId);
+    if (!claim) return null;
+
+    const user = await ctx.db.get(claim.userId);
+    const policy = claim.matchedPolicyType
+      ? getPolicyTemplate(claim.matchedPolicyType) ?? null
+      : null;
+
+    const mediaWithUrls = await Promise.all(
+      (claim.media ?? []).map(async (m) => ({
+        ...m,
+        url: await ctx.storage.getUrl(m.storageId),
+      }))
+    );
+
+    const uploadsWithUrls = await Promise.all(
+      (claim.requiredUploads ?? []).map(async (u) => ({
+        ...u,
+        url: u.storageId ? await ctx.storage.getUrl(u.storageId) : null,
+      }))
+    );
+
+    return { ...claim, user, policy, mediaWithUrls, uploadsWithUrls };
+  },
+});
+
 export const updateDraftFields = mutation({
   args: {
     claimId: v.id("claims"),

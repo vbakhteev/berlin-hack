@@ -122,6 +122,11 @@ export function CallView({ sessionId }: { sessionId: string }) {
     }
   };
 
+  const handleStopCamera = useCallback(() => {
+    stopVideo();
+    setShowCameraOverlay(false);
+  }, [stopVideo]);
+
   const inspectionRequested = (claim?.visualInspectionRequested || optimisticInspectionRequested) && !showCameraOverlay;
 
   const statusText = tokenError
@@ -143,7 +148,7 @@ export function CallView({ sessionId }: { sessionId: string }) {
         isActive={showCameraOverlay}
         hint={inspectionHint}
         onStartCamera={startVideo}
-        onStop={() => { stopVideo(); setShowCameraOverlay(false); }}
+        onStop={handleStopCamera}
       />
 
       {/* Inspection button overlay (appears when tool fires but camera not yet open) */}

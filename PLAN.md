@@ -202,7 +202,6 @@ export default defineSchema({
     tokenIdentifier: v.string(),
     // NEW
     onboardingComplete: v.optional(v.boolean()),
-    preferredLanguage: v.optional(v.union(v.literal("en"), v.literal("de"))),
   }).index("by_token", ["tokenIdentifier"]),
 
   policies: defineTable({

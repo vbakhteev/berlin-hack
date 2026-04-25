@@ -31,7 +31,6 @@ export default function SubmittedPage({ params }: PageProps) {
   return (
     <main className="min-h-screen bg-background flex flex-col items-center p-4 pb-10">
       <div className="w-full max-w-lg pt-12">
-
         {/* Hero */}
         <div className="flex flex-col items-center text-center mb-10">
           <div className="w-20 h-20 rounded-full bg-green-100 dark:bg-green-950 flex items-center justify-center mb-5">
@@ -42,13 +41,18 @@ export default function SubmittedPage({ params }: PageProps) {
               stroke="currentColor"
               strokeWidth={2.5}
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M5 13l4 4L19 7"
+              />
             </svg>
           </div>
           <h1 className="text-2xl font-bold mb-2">Your claim is submitted</h1>
           <p className="text-sm text-muted-foreground max-w-xs">
             We're on it. Expect a decision in your inbox by{" "}
-            <span className="font-medium text-foreground">{reviewByStr}</span> today.
+            <span className="font-medium text-foreground">{reviewByStr}</span>{" "}
+            today.
           </p>
           <p className="text-xs text-muted-foreground mt-3 font-mono tracking-wider">
             REF {shortRef}
@@ -69,7 +73,9 @@ export default function SubmittedPage({ params }: PageProps) {
                 </p>
               </div>
               {policyTpl && (
-                <div className="text-3xl leading-none shrink-0">{policyTpl.emoji}</div>
+                <div className="text-3xl leading-none shrink-0">
+                  {policyTpl.emoji}
+                </div>
               )}
             </CardContent>
           </Card>
@@ -126,15 +132,6 @@ export default function SubmittedPage({ params }: PageProps) {
           >
             Go to dashboard
           </Button>
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() =>
-              router.push(`/claim/${sessionId}`)
-            }
-          >
-            Add more documents
-          </Button>
         </div>
       </div>
     </main>
@@ -167,9 +164,7 @@ function TimelineStep({
         >
           {status === "done" ? "✓" : status === "active" ? "·" : "·"}
         </div>
-        {!isLast && (
-          <div className="w-px flex-1 my-1 bg-border min-h-[20px]" />
-        )}
+        {!isLast && <div className="w-px flex-1 my-1 bg-border min-h-[20px]" />}
       </div>
 
       {/* Text */}
