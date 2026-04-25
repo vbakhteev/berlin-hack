@@ -29,3 +29,20 @@
 **Commits:** 63e054d, ad93f75
 
 **Status report:** docs/agent-messages/2026-04-25-research-to-konstantin-guidance-done.md
+
+---
+
+## 2026-04-25 — next-research-3 brief complete
+
+**Brief:** Improve conversational logic in system prompt — natural flow, per-policy openers, vague-answer handling, warm closes.
+
+**Shipped:**
+- `lib/agent/system-prompt.ts` — 4 improvements:
+  1. New `HANDLING SHORT OR VAGUE ANSWERS` section
+  2. Per-policy transition lines injected between step 4 and 5 (after check_coverage, before fact-gathering)
+  3. Step 5 rewritten as natural conversation guidance — grouped questions, conversational confirms, anti-robot-phrasing rules, per-fact update_claim_field
+  4. Step 11 updated with specific per-policy warm closes
+
+**Note:** Brief specified local commit only — NOT pushed. SHA dea1bfc.
+
+**Status report:** docs/agent-messages/2026-04-25-research-to-konstantin-prompt-v2-done.md
