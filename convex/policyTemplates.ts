@@ -25,7 +25,8 @@ export const POLICY_TEMPLATES: PolicyTemplate[] = [
     title: "Car insurance",
     description: "Collision, theft, and accidental damage",
     voiceAgentContext:
-      "This is a comprehensive car (Vollkasko) policy. It covers collision damage, theft, vandalism, and weather events. " +
+      "This is a comprehensive car (Vollkasko) policy. The caller may be on a roadside or in a stressful post-accident situation — be calm, brief, and reassuring. Move quickly through the facts. " +
+      "It covers collision damage, theft, vandalism, and weather events. " +
       "Visual inspection is always required for damage claims — ask the caller to show the vehicle damage. " +
       "For accidents, a police report is required. For theft, a police report is mandatory. " +
       "The deductible applies per incident. Depreciation is not applied to vehicles — repairs are covered at actual cost. " +
@@ -67,10 +68,11 @@ export const POLICY_TEMPLATES: PolicyTemplate[] = [
     title: "Electronics insurance",
     description: "Phones, laptops, tablets, and gadgets",
     voiceAgentContext:
-      "This is an electronics accidental damage and theft policy. It covers laptops, smartphones, tablets, and other registered devices. " +
+      "This is the most common claim type — electronics accidental damage and theft. Callers typically have a cracked screen or water damage. " +
       "Visual inspection is required for damage claims — ask the caller to show the damaged device on camera. " +
       "Depreciation applies linearly at 10% per year from the purchase date, with a maximum 60% reduction. " +
       "Ask for: the device brand and model, approximate purchase date, serial number if available, and a description of what happened. " +
+      "Before finalizing, always confirm whether the caller has their purchase receipt — it is required for reimbursement. " +
       "Water damage from natural disasters (flooding) is excluded, but accidental spills are covered. " +
       "For theft: ask if a police report was filed — it is required for theft claims. " +
       "The device must have been registered on the policy for coverage to apply.",

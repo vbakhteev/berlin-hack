@@ -22,8 +22,8 @@ export const toolSchemas = [
   {
     name: "check_coverage",
     description:
-      "Look up the deductible, depreciation, and exclusions for the matched " +
-      "policy so you can read them aloud accurately. Call this right after match_policy.",
+      "Call this immediately after match_policy returns — before asking the caller any more questions. " +
+      "Read the deductible and depreciation values aloud. This MUST happen before you gather further facts.",
     parameters: {
       type: "object",
       properties: {
