@@ -7,81 +7,48 @@ export default async function HomePage() {
   if (userId) redirect("/dashboard");
 
   return (
-    <main
-      className="min-h-[100dvh] flex flex-col"
-      style={{ background: "#0A0A0A", color: "#fff" }}
-    >
+    <main className="min-h-[100dvh] bg-white flex flex-col">
       {/* Header */}
       <header
         className="flex items-center justify-between px-6"
         style={{ paddingTop: "calc(20px + env(safe-area-inset-top, 0px))" }}
       >
         <div className="flex items-center gap-2.5">
-          <div
-            className="w-5 h-5 rounded-sm rotate-45"
-            style={{
-              background: "#0D4F3D",
-              boxShadow: "0 0 10px rgba(13,79,61,0.8)",
-            }}
-          />
-          <span className="font-bold text-lg tracking-tight">Inca</span>
+          <div className="w-5 h-5 rounded-sm rotate-45 bg-green-700" />
+          <span className="font-bold text-lg tracking-tight text-black">Inca</span>
         </div>
-        <Link
-          href="/sign-in"
-          className="text-sm font-medium"
-          style={{ color: "#4B916D" }}
-        >
+        <Link href="/sign-in" className="text-sm font-medium text-green-700">
           Sign in
         </Link>
       </header>
 
       {/* Hero */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-6">
-        {/* Orb */}
-        <div className="relative w-36 h-36 mb-10">
-          <div
-            className="absolute inset-0 rounded-full blur-2xl animate-pulse"
-            style={{ background: "#0D4F3D", opacity: 0.35 }}
-          />
-          <div
-            className="relative w-36 h-36 rounded-full flex items-center justify-center"
-            style={{
-              background:
-                "radial-gradient(circle at 38% 32%, #4B916D, #0D4F3D 55%, #061a12)",
-              boxShadow:
-                "0 0 48px rgba(13,79,61,0.5), inset 0 1px 0 rgba(255,255,255,0.12)",
-            }}
-          >
-            <svg width="48" height="36" viewBox="0 0 48 36" fill="none">
-              <rect x="0" y="12" width="5" height="12" rx="2.5" fill="white" fillOpacity="0.55" />
-              <rect x="9" y="7" width="5" height="22" rx="2.5" fill="white" fillOpacity="0.75" />
-              <rect x="18" y="0" width="5" height="36" rx="2.5" fill="white" />
-              <rect x="27" y="5" width="5" height="26" rx="2.5" fill="white" fillOpacity="0.75" />
-              <rect x="36" y="9" width="5" height="18" rx="2.5" fill="white" fillOpacity="0.55" />
-              <rect x="45" y="13" width="3" height="10" rx="1.5" fill="white" fillOpacity="0.35" />
-            </svg>
-          </div>
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-8">
+        {/* How it works — 3-step visual */}
+        <div className="flex items-center gap-2 mb-10 w-full max-w-xs">
+          <Step icon="🎙" label="Talk to Lina" />
+          <div className="flex-1 h-px bg-gray-200" />
+          <Step icon="📷" label="Show damage" />
+          <div className="flex-1 h-px bg-gray-200" />
+          <Step icon="✓" label="Get payout" green />
         </div>
 
         {/* Copy */}
         <div className="text-center" style={{ maxWidth: 320 }}>
           <p
-            className="text-xs font-semibold uppercase mb-4"
-            style={{ color: "#4B916D", letterSpacing: "0.14em" }}
+            className="text-xs font-semibold uppercase text-gray-400 mb-4"
+            style={{ letterSpacing: "0.14em" }}
           >
             AI-powered insurance claims
           </p>
           <h1
-            className="font-bold leading-tight mb-4"
+            className="font-bold leading-tight text-black mb-4"
             style={{ fontSize: "2rem", letterSpacing: "-0.02em" }}
           >
             File a claim in{" "}
-            <span style={{ color: "#4B916D" }}>90 seconds.</span>
+            <span className="text-green-700">90 seconds.</span>
           </h1>
-          <p
-            className="text-sm leading-relaxed mb-8"
-            style={{ color: "rgba(255,255,255,0.45)" }}
-          >
+          <p className="text-sm leading-relaxed text-gray-500 mb-8">
             Talk to Lina. Show the damage. Walk away knowing your deductible,
             depreciation, and expected payout — before uploading a single
             document.
@@ -90,21 +57,11 @@ export default async function HomePage() {
 
         {/* Feature pills */}
         <div className="flex flex-wrap justify-center gap-2 mb-10">
-          {[
-            { label: "Voice-first FNOL", icon: "🎙" },
-            { label: "Instant estimate", icon: "⚡" },
-            { label: "EU data only", icon: "🔒" },
-          ].map(({ label, icon }) => (
+          {["Voice-first FNOL", "Instant estimate", "EU data only"].map((label) => (
             <span
               key={label}
-              className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full"
-              style={{
-                background: "rgba(13,79,61,0.18)",
-                color: "#4B916D",
-                border: "1px solid rgba(75,145,109,0.25)",
-              }}
+              className="text-xs font-medium px-3 py-1.5 rounded-full bg-green-50 border border-green-200 text-green-800"
             >
-              <span>{icon}</span>
               {label}
             </span>
           ))}
@@ -114,22 +71,13 @@ export default async function HomePage() {
         <div className="w-full flex flex-col gap-3" style={{ maxWidth: 320 }}>
           <Link
             href="/sign-up"
-            className="w-full h-14 rounded-2xl text-white text-base font-semibold flex items-center justify-center"
-            style={{
-              background: "#116dff",
-              boxShadow: "0 4px 28px rgba(17,109,255,0.35)",
-            }}
+            className="w-full h-14 rounded-2xl bg-green-700 hover:bg-green-800 text-white text-base font-semibold flex items-center justify-center transition-colors"
           >
             Get started — it&apos;s free
           </Link>
           <Link
             href="/sign-in"
-            className="w-full h-12 rounded-2xl text-sm font-medium flex items-center justify-center"
-            style={{
-              background: "rgba(255,255,255,0.05)",
-              color: "rgba(255,255,255,0.6)",
-              border: "1px solid rgba(255,255,255,0.08)",
-            }}
+            className="w-full h-12 rounded-2xl bg-gray-100 text-gray-700 text-sm font-medium flex items-center justify-center transition-colors hover:bg-gray-200"
           >
             I already have an account
           </Link>
@@ -138,14 +86,36 @@ export default async function HomePage() {
 
       {/* Footer */}
       <p
-        className="text-center text-xs px-6"
-        style={{
-          color: "rgba(255,255,255,0.18)",
-          paddingBottom: "calc(16px + env(safe-area-inset-bottom, 0px))",
-        }}
+        className="text-center text-xs text-gray-400 px-6"
+        style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom, 0px))" }}
       >
         Berlin Hack 2026 · Powered by Gemini Live
       </p>
     </main>
+  );
+}
+
+function Step({
+  icon,
+  label,
+  green,
+}: {
+  icon: string;
+  label: string;
+  green?: boolean;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <div
+        className={`w-10 h-10 rounded-full flex items-center justify-center text-base ${
+          green ? "bg-green-700 text-white" : "bg-gray-100 text-gray-600"
+        }`}
+      >
+        {icon}
+      </div>
+      <span className={`text-[10px] font-medium ${green ? "text-green-700" : "text-gray-400"}`}>
+        {label}
+      </span>
+    </div>
   );
 }

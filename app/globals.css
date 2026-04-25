@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --inca-bg: #FFFFFF;
+  --inca-text: #111111;
+  --inca-green: #166534;
+  --inca-green-accent: #16A34A;
+  --inca-muted: #6B7280;
+}
+body { background: var(--inca-bg); color: var(--inca-text); }
 
 @layer base {
   :root {
