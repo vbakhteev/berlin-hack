@@ -163,26 +163,28 @@ export class AudioPlayer {
     source.start();
   }
 
-  // German Rufton: 3 rings (425Hz, 0.65s on / 1.3s off), short pause, headset crackle
-  // Ring 1 @ 0.0s, Ring 2 @ 1.95s, Ring 3 @ 3.9s, crackle @ 5.0s
-  // Sets firstResponseNotBefore so Lina's voice never overlaps the ringing.
+  // German Rufton per ITU-T E.180: 425Hz, 1s on / 4s off cadence.
+  // Using 1s on / 3s off for demo (feels authentic, slightly tighter than standard 4s).
+  // Ring 1 @ 0.0s, Ring 2 @ 4.0s, Ring 3 @ 8.0s, crackle @ 9.4s
   playDialToneAndCrackle(): void {
     if (!this.audioContext) this.init();
     const ctx = this.audioContext!;
     const rate = ctx.sampleRate;
     const t0 = ctx.currentTime;
 
-    const ringDuration = 0.65;
-    const ringGap = 1.3; // silence between rings
+    const ringDuration = 1.0;  // 1s ring tone
+    const ringGap = 3.0;       // 3s silence (standard is 4s, 3s feels natural for demo)
     const ringOffsets = [0, ringDuration + ringGap, (ringDuration + ringGap) * 2];
-    const crackleOffset = (ringDuration + ringGap) * 3 - ringGap + 0.45; // ~5.0s
+    const crackleOffset = ringOffsets[2] + ringDuration + 0.4; // 9.4s
 
-    // Build one ring buffer, reuse for all 3
+    // Build ring buffer — 425Hz with short fade in/out to avoid click
     const ringSamples = Math.floor(rate * ringDuration);
     const ringBuf = ctx.createBuffer(1, ringSamples, rate);
     const ringData = ringBuf.getChannelData(0);
+    const fadeSamples = Math.floor(rate * 0.02); // 20ms fade
     for (let i = 0; i < ringSamples; i++) {
-      const fade = i < 400 ? i / 400 : i > ringSamples - 400 ? (ringSamples - i) / 400 : 1;
+      const fade = i < fadeSamples ? i / fadeSamples
+        : i > ringSamples - fadeSamples ? (ringSamples - i) / fadeSamples : 1;
       ringData[i] = 0.28 * Math.sin(2 * Math.PI * 425 * (i / rate)) * fade;
     }
 
@@ -193,7 +195,7 @@ export class AudioPlayer {
       src.start(t0 + offset);
     }
 
-    // Crackle burst — headset pickup click
+    // Crackle — headset pickup click
     const crackleSamples = Math.floor(rate * 0.08);
     const crackleBuf = ctx.createBuffer(1, crackleSamples, rate);
     const crackleData = crackleBuf.getChannelData(0);
@@ -205,7 +207,7 @@ export class AudioPlayer {
     crackleSource.connect(ctx.destination);
     crackleSource.start(t0 + crackleOffset);
 
-    // Block first response until 600ms after crackle — Lina "picks up" then speaks
+    // Block Lina's first word until 600ms after crackle — she "picks up" then speaks
     this.firstResponseNotBefore = Date.now() + (crackleOffset + 0.6) * 1000;
   }
 
