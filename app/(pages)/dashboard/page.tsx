@@ -35,8 +35,13 @@ export default function DashboardPage() {
 
   const handleOpenClaim = async () => {
     const sessionId = nanoid();
-    await createClaim({ sessionId });
-    router.push(`/claim/${sessionId}`);
+    try {
+      await createClaim({ sessionId });
+      router.push(`/claim/${sessionId}`);
+    } catch (e) {
+      console.error("[Dashboard] createClaim failed:", e);
+      alert("Could not start claim: " + String(e));
+    }
   };
 
   if (currentUser && !currentUser.onboardingComplete) {
