@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import type { ToolCallPayload } from "./use-gemini-live";
+import type { ToolCallPayload } from "./types";
 
 export function useToolBridge(sessionId: string) {
   const matchPolicy = useMutation(api.tools.matchPolicy);

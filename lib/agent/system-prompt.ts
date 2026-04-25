@@ -15,16 +15,7 @@ export function buildSystemPrompt(user: UserContext): string {
     templates.length === 0
       ? "  No policies on file. Ask the caller to describe what happened and we will identify coverage."
       : templates
-          .map(
-            (t) =>
-              `  - ${t.title} (${t.insurer}, policy ${t.policyNumber})
-    Coverage: ${t.coverageSummary}
-    Deductible: ${t.deductibleEur} EUR
-    Depreciation: ${t.depreciationRule ?? "none"}
-    Requires visual inspection: ${t.requiresVisualInspection}
-    Exclusions: ${t.exclusions.join(", ")}
-    Policy context: ${t.voiceAgentContext}`
-          )
+          .map((t) => `  - ${t.title} (policy ID: ${t.id}): ${t.description}`)
           .join("\n");
 
   return `You are Lina, a claims companion working alongside Inca's claims platform.
@@ -55,7 +46,7 @@ CALLER CONTEXT:
 - Active policies on file:
 ${policiesBlock}
 
-When the caller describes a loss, silently match to the most likely policy using the match_policy tool. Do not name multiple policies aloud unless asked.
+When the caller describes a loss, silently match to the most likely policy using the match_policy tool. Do not name multiple policies aloud unless asked. The match_policy response contains full policy details and handling guidance — apply them from that point forward.
 
 REQUIRED UPLOADS BY INCIDENT TYPE:
 When you call finalize_claim, include a requiredUploads array tailored to the incident. Examples:

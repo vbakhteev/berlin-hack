@@ -102,6 +102,9 @@ export const matchPolicy = mutation({
       depreciationRule: matched.depreciationRule ?? null,
       requiresVisualInspection: matched.requiresVisualInspection,
       exclusions: matched.exclusions,
+      coverageSummary: matched.coverageSummary,
+      coverageLimitEur: matched.coverageLimitEur ?? null,
+      policyGuidance: matched.voiceAgentContext,
     };
   },
 });

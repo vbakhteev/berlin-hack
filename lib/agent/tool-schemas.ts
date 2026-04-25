@@ -3,7 +3,8 @@ export const toolSchemas = [
     name: "match_policy",
     description:
       "Match the current claim context to one of the caller's loaded policies. " +
-      "Call this as soon as you have a rough sense of what was damaged or what happened. Do not wait.",
+      "Call this as soon as you have a rough sense of what was damaged or what happened. Do not wait. " +
+      "The response includes full policy details and handling guidance (policyGuidance) — read and apply it before proceeding.",
     parameters: {
       type: "object",
       properties: {
