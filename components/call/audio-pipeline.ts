@@ -101,18 +101,25 @@ export class AudioPlayer {
     if (!this.isPlaying) {
       if (!this.responseStarted) {
         this.responseStarted = true;
-        // Bimodal delay — humans are sometimes fast, sometimes slow. Never uniform.
-        // 30%: quick reply (150–400ms), 50%: normal (600–1400ms), 20%: long (2200–3800ms)
-        const r = Math.random();
-        const naturalDelay = r < 0.3
-          ? 150 + Math.random() * 250
-          : r < 0.8
-            ? 600 + Math.random() * 800
-            : 2200 + Math.random() * 1600;
-        // Ensure we never play before the dial tone sequence finishes
-        const waitUntil = Math.max(naturalDelay, this.firstResponseNotBefore - Date.now());
+        const notBefore = this.firstResponseNotBefore;
         this.firstResponseNotBefore = 0;
-        setTimeout(() => this.playNext(), Math.max(0, waitUntil));
+
+        let delay: number;
+        if (notBefore > 0) {
+          // First response after pickup — wait for dial tone to finish, then speak quickly
+          // (200–400ms after crackle, like someone who just answered)
+          delay = Math.max(0, notBefore - Date.now()) + 200 + Math.random() * 200;
+        } else {
+          // Subsequent responses — bimodal: sometimes fast, sometimes slow, never uniform
+          // 30%: quick (150–400ms), 50%: normal (600–1400ms), 20%: long (2200–3800ms)
+          const r = Math.random();
+          delay = r < 0.3
+            ? 150 + Math.random() * 250
+            : r < 0.8
+              ? 600 + Math.random() * 800
+              : 2200 + Math.random() * 1600;
+        }
+        setTimeout(() => this.playNext(), delay);
       }
     }
   }
