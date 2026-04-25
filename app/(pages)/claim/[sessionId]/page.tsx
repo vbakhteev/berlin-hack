@@ -3,7 +3,7 @@
 import { use } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { CallScreen } from "@/components/call/call-screen";
+import { CallView } from "./_components/call-view";
 import { ReviewView } from "./_components/review-view";
 
 type PageProps = { params: Promise<{ sessionId: string }> };
@@ -29,7 +29,7 @@ export default function ClaimPage({ params }: PageProps) {
   }
 
   if (claim.status === "call") {
-    return <CallScreen sessionId={sessionId} />;
+    return <CallView sessionId={sessionId} />;
   }
 
   return <ReviewView sessionId={sessionId} />;
