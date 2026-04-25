@@ -99,12 +99,19 @@ export class AudioPlayer {
 
     if (!this.isPlaying) {
       if (!this.responseStarted) {
-        // First chunk of a new response — add human-like thinking delay (1.5–3s)
         this.responseStarted = true;
-        const delay = 1500 + Math.random() * 1500;
+        // Bimodal delay — humans are sometimes fast, sometimes slow. Never uniform.
+        // 30%: quick reply (150–400ms) — answer already known
+        // 50%: normal thinking (600–1400ms)
+        // 20%: longer pause (2200–3800ms) — looking something up / typing
+        const r = Math.random();
+        const delay = r < 0.3
+          ? 150 + Math.random() * 250
+          : r < 0.8
+            ? 600 + Math.random() * 800
+            : 2200 + Math.random() * 1600;
         setTimeout(() => this.playNext(), delay);
       }
-      // Subsequent chunks while delay is pending: just sit in queue
     }
   }
 
