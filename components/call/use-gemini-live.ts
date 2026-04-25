@@ -131,6 +131,14 @@ export function useGeminiLive({
         if (data.setupComplete !== undefined) {
           updateState("connected");
           audioPlayerRef.current?.playDialToneAndCrackle();
+          // Trigger Lina's greeting immediately — Gemini Live waits for a turn signal.
+          // Audio will be queued but firstResponseNotBefore blocks playback until after ringing.
+          sendMessage({
+            clientContent: {
+              turns: [{ role: "user", parts: [{ text: "" }] }],
+              turnComplete: true,
+            },
+          });
           const pipe = new AudioPipeline();
           audioPipelineRef.current = pipe;
           try {

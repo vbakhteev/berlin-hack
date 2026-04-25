@@ -202,17 +202,27 @@ export class AudioPlayer {
       src.start(t0 + offset);
     }
 
-    // Crackle — headset pickup click
-    const crackleSamples = Math.floor(rate * 0.08);
-    const crackleBuf = ctx.createBuffer(1, crackleSamples, rate);
-    const crackleData = crackleBuf.getChannelData(0);
-    for (let i = 0; i < crackleSamples; i++) {
-      crackleData[i] = (Math.random() * 2 - 1) * 0.25 * Math.pow(1 - i / crackleSamples, 2.5);
+    // Pickup click — modeled after a real handset relay:
+    // Phase 1 (0–6ms): sharp tonal click — mechanical relay closing
+    // Phase 2 (6–35ms): brief line-noise settling, fast exponential decay
+    const clickDuration = 0.035;
+    const clickSamples = Math.floor(rate * clickDuration);
+    const clickBuf = ctx.createBuffer(1, clickSamples, rate);
+    const clickData = clickBuf.getChannelData(0);
+    const impulseSamples = Math.floor(rate * 0.006);
+    for (let i = 0; i < clickSamples; i++) {
+      if (i < impulseSamples) {
+        const t = i / impulseSamples;
+        clickData[i] = 0.35 * (1 - t) * Math.sin(2 * Math.PI * 900 * (i / rate));
+      } else {
+        const t = (i - impulseSamples) / (clickSamples - impulseSamples);
+        clickData[i] = (Math.random() * 2 - 1) * 0.08 * Math.pow(1 - t, 2);
+      }
     }
-    const crackleSource = ctx.createBufferSource();
-    crackleSource.buffer = crackleBuf;
-    crackleSource.connect(ctx.destination);
-    crackleSource.start(t0 + crackleOffset);
+    const clickSource = ctx.createBufferSource();
+    clickSource.buffer = clickBuf;
+    clickSource.connect(ctx.destination);
+    clickSource.start(t0 + crackleOffset);
 
     // Block Lina's first word until 600ms after crackle — she "picks up" then speaks
     this.firstResponseNotBefore = Date.now() + (crackleOffset + 0.6) * 1000;
