@@ -1,114 +1,151 @@
-# Vlad — Feedback für morgen früh (2026-04-26)
-Stand: laufend aktualisiert von Konstantin/Fabian heute Nacht
+# Vlad — Handover: Human Imperfection Layer
+**Updated:** 2026-04-26 (tonight by Fabian + Konstantin)
+**For:** Tomorrow morning before the 14:00 demo
 
 ---
 
-## 🔊 Audio: Phone-Filter für Linas Stimme
+## The Goal
 
-**Was:** Der Output von Lina klingt zu "studio-perfect" — wie jemand der mit einem professionellen Mikrofon in einem schalltoten Raum sitzt. Das fühlt sich nicht wie eine echte Telefonhotline an.
+Lina's conversation content is being perfected in AI Studio tonight (what she says, how she flows, natural errors in speech). But the *sound* of the call is still too clean — it screams AI.
 
-**Gewünschtes Ergebnis:** Linas Stimme soll klingen wie ein echter Büro-Agent mit Headset:
-- Leichter Phone-EQ: Highpass ~300Hz, Lowpass ~3400Hz (klassischer Telefonklang)
-- Subtiles Office-Hintergrundrauschen (sehr leise, kaum wahrnehmbar)
-- Leichte Audio-Kompression
-
-**Wo:** `components/call/use-gemini-live.ts` — Post-Processing auf dem Audio-Output via Web Audio API
-
-**Aufwand:** ~30 Minuten
-
-**Warum:** Macht den "ist das KI oder ein Mensch?"-Moment viel stärker. Jury und Demo-Publikum spüren es sofort.
+The fix is an **imperfection layer** applied to the audio pipeline in `use-gemini-live.ts`. All of these are Web Audio API modifications. The insertion point is already identified: in `AudioPlayer.playNext()`, between `source.connect()` and `source.start()`.
 
 ---
 
-## (weitere Punkte kommen heute Nacht noch dazu)
+## Priority 1 — Must Have (demo-critical)
 
-
----
-
-## ⏱️ Response Delay — künstliche Denkzeit vor jeder Antwort
-
-**Was:** AI antwortet in unter 1 Sekunde. Ein Mensch braucht 2-4 Sekunden. Diese Lücke ist der größte AI-Tell im Gespräch.
-
-**Gewünschtes Ergebnis:** Vor dem Ausspielen jeder Lina-Antwort: 1.5-3 Sekunden künstliche Verzögerung. Variabel — nicht immer gleich lang.
-
-**Wo:** `components/call/use-gemini-live.ts` — Audio-Output verzögern bevor es abgespielt wird
-
-**Aufwand:** ~20 Minuten
-
----
-
-## 🎙️ Imperfekte Aussprache / TTS-Textur
-
-**Was:** Linas Stimme klingt zu perfekt und zu sauber. Kein Mensch spricht so.
-
-**Gewünschtes Ergebnis:** Leichte Audio-Textur auf dem TTS-Output — minimale Variation in Pitch und Speed, die das "zu perfekt" aufbricht. Kein dramatischer Effekt — nur das "uncanny valley" der Perfektion entfernen.
-
-**Wo:** Audio post-processing in der Web Audio API Pipeline, nach dem Gemini Live Output
-
-**Aufwand:** ~45 Minuten. Kann auch einfach mit dem Phone-EQ Filter kombiniert werden.
-
+### 🎛️ Phone EQ Filter
+**What:** Add a BiquadFilter that cuts everything below ~300Hz and above ~3400Hz — the exact frequency range of a real phone call. Removes the "studio microphone" quality instantly.
+**Where:** `use-gemini-live.ts` → `AudioPlayer.playNext()` — insert before destination
+**Code:**
+```js
+const filter = audioContext.createBiquadFilter();
+filter.type = 'bandpass';
+filter.frequency.value = 1800;
+filter.Q.value = 0.7;
+source.connect(filter);
+filter.connect(destination);
+```
+**Effort:** 15 min
 
 ---
 
-## 🎭 IMPERFECTION LAYER — vollständige Blueprint
-
-Das ist die wichtigste technische Aufgabe für die Demo. Der Inhalt (was Lina sagt) wird über AI Studio gut. Aber wie sie klingt muss manuell imperfekt gemacht werden. Alles davon geht in die Web Audio API Pipeline in `use-gemini-live.ts`.
-
-### 1. Phone EQ Filter (bereits auf der Liste)
-Highpass 300Hz + Lowpass 3400Hz. Klassischer Telefonklang. Pflicht.
-
-### 2. Mikrofon-Distanz-Simulation
-Gelegentliche leichte Lautstärkeabsenkung (-2 bis -4dB für 1-2 Sekunden), als würde die Person kurz den Kopf wegdrehen. Zufällig, 2-3x pro Gespräch. Nicht dramatisch.
-
-### 3. Hintergrundrauschen — Büro-Atmo
-Sehr leises Büro-Ambient: entferntes Tastaturklicken, leises AC-Summen, gelegentlich eine Stimme im Hintergrund. Kaum wahrnehmbar aber spürbar. Loopbare Audiodatei, -30dB unter der Stimme.
-
-### 4. Tastatur-Sounds beim Tippen
-Wenn Lina "etwas eingibt" (nach update_claim_field calls): leise Tastaturklicks im Hintergrund für 2-3 Sekunden. Signalisiert: sie tippt gerade. Sehr leise, -25dB.
-
-### 5. Response Delay (bereits auf der Liste)
-1.5-3 Sekunden künstliche Verzögerung vor jeder Antwort. Variabel — nicht immer gleich.
-
-### 6. Kompressionsartefakte
-Leichte Dynamikkompression wie bei einem echten Telefon-Codec. Stimme klingt etwas "gequetscht" — typisch für VoIP/Headset.
-
-### 7. Stimmtonlage — demotiviert, flach
-Wenn möglich über Gemini Voice-Parameter: flachere Intonation, leicht monoton. Nicht robotisch — einfach wie jemand der schon 40 Anrufe heute hatte. Weniger pitch variation als der Default.
-
-### 8. Subtile Raumhall
-Minimaler Reverb (Room-Typ, sehr kurz ~50ms), als würde sie in einem Büro-Cubicle sitzen. Kein Hall wie in einem Konzertsaal — nur die Andeutung eines echten Raums.
-
-### 9. Micro-Timing Variation
-Winzige zufällige Timing-Variations zwischen TTS-Wörtern (+/- 20-50ms). Macht den Rhythmus weniger maschinell-gleichmäßig.
-
-### Priorität für Demo (wenn nicht alles möglich)
-1. Phone EQ Filter ← Pflicht
-2. Response Delay ← Pflicht  
-3. Tastatur-Sounds ← sehr hoher Impact
-4. Hintergrundrauschen ← hoher Impact
-5. Mikrofon-Distanz ← mittel
-6. Rest ← nice-to-have
-
+### ⏱️ Response Delay
+**What:** AI responds in <1 second. A real human takes 2-4 seconds to think and type. Add a random 1.5–3s delay before playing each audio response.
+**Where:** `use-gemini-live.ts` — before `audioPlayer.enqueue()`
+**Code:**
+```js
+const delay = 1500 + Math.random() * 1500; // 1.5–3s
+setTimeout(() => audioPlayer.enqueue(audioData), delay);
+```
+**Effort:** 10 min
 
 ---
 
-## 📞 Call Start — Dial Tone + Connect Crackle
-
-**Dial tone:** Short 1-2 beep dial tone before Lina picks up. Not a full ring — just enough to feel like a real call connecting.
-
-**Connect crackle:** Tiny headset crackle/pop (50-80ms) right as the call connects. Like the agent just plugged in their headset or adjusted the cable. Very subtle.
-
-**Mid-call cable rustle:** 1-2x during the call, a brief headset noise (cable being moved). Random timing, very short. Makes it feel like a real person adjusting their equipment.
-
-**Where:** `use-gemini-live.ts` — play audio assets at call start + random intervals
-
-**Assets needed:** 2-3 short audio files (dial beep, connect crackle, cable rustle) — can find royalty-free or generate with Audacity
+### 📞 Dial Tone + Headset Connect Crackle
+**What:** When the call starts — 1 short dial beep, then a tiny headset crackle as Lina "picks up". Everyone knows this sound from real calls.
+**Where:** `call-view.tsx` — on call connect event
+**Assets:** German dial tone = 425Hz sine wave (generate in code or grab from freesound.org). Crackle = short audio file from freesound.org search "headset crackle mic noise"
+**Effort:** 20 min
 
 ---
 
-## ⏱️ Call Timer Display
+### ⏱️ Call Timer on Screen
+**What:** Show elapsed call time counting up (0:00, 0:01...) exactly like a real phone call UI. Pure visual but massive perception impact.
+**Where:** `call-view.tsx` — simple `useState` + `setInterval` on connect
+**Effort:** 10 min
 
-Show elapsed call time on the call screen — exactly like a real phone call UI.
-Format: `0:00` counting up from call start.
-**Where:** `call-view.tsx` — simple timer component, starts on connect
+---
 
+## Priority 2 — High Impact
+
+### ⌨️ Keyboard Sounds While Lina Types
+**What:** When Lina is "entering data" (triggered by tool calls like `update_claim_field`), play quiet keyboard typing sounds in the background for 2–3 seconds. Signals she's typing without saying it.
+**Where:** `use-tool-bridge.ts` — on each tool call, play a typing audio clip in parallel
+**Assets:** freesound.org → search "mechanical keyboard office typing" (pick a realistic one, not a gaming keyboard)
+**Volume:** -25dB under voice, very subtle
+**Effort:** 30 min
+
+---
+
+### 🔊 Office Background Ambient
+**What:** Very quiet looping office ambient — AC hum, distant keyboard clicks, occasional muffled voice. Barely noticeable but completely changes the feel.
+**Where:** `call-view.tsx` — loop an audio file at -30dB from call start to end
+**Assets:** freesound.org → search "office ambience background noise"
+**Effort:** 20 min
+
+---
+
+### 🎚️ Dynamic Compression (VoIP Codec Simulation)
+**What:** Real phone calls have dynamic compression — the voice sounds slightly "squeezed". Adds authenticity without changing the content.
+**Where:** `use-gemini-live.ts` → insert DynamicsCompressorNode in the chain
+**Code:**
+```js
+const compressor = audioContext.createDynamicsCompressor();
+compressor.threshold.value = -24;
+compressor.knee.value = 30;
+compressor.ratio.value = 4;
+source.connect(compressor);
+compressor.connect(filter); // chain with EQ
+```
+**Effort:** 10 min
+
+---
+
+## Priority 3 — Nice to Have
+
+### 🎙️ Random Headset Cable Rustle
+1–2x during a call, play a very short headset noise (50–100ms) as if Lina moved the cable. Timed randomly between tool calls.
+**Assets:** freesound.org → "headset cable noise"
+**Effort:** 20 min
+
+### 📉 Mic Distance Simulation
+Random volume dips (-3dB for 1–2 seconds) as if Lina turned her head slightly. 2–3x per call, not dramatic.
+**Effort:** 20 min
+
+### 🏢 Room Reverb
+Very short room reverb (~50ms) using ConvolverNode. Sounds like a cubicle, not a recording booth.
+**Effort:** 30 min (need an impulse response file)
+
+---
+
+## What NOT to do
+
+- **Don't add sounds before fixing EQ + Delay.** The base voice quality must be right first. Adding fake sounds on top of clearly-AI audio makes it worse, not better.
+- **Don't use synthesized/loop-y sound effects** — only real recordings from freesound.org. Generic sound effects immediately break immersion.
+- **Micro-timing variation on individual words** — not technically possible with streaming audio. Skip it.
+
+---
+
+## Total Effort Estimate
+
+| Must Have | ~55 min |
+|---|---|
+| High Impact | ~60 min |
+| Nice to Have | ~70 min |
+| **Realistic for demo** | **Phone EQ + Delay + Dial tone + Timer + Keyboard sounds = ~85 min** |
+
+---
+
+## Audio Assets — Where to Get Them
+
+All free, CC-licensed: **freesound.org**
+
+| Sound | Search term |
+|---|---|
+| Office keyboard typing | `mechanical keyboard office typing` |
+| Headset crackle | `headset mic crackle noise` |
+| Office ambient | `office ambience background` |
+| Cable rustle | `cable rustle headset` |
+
+German dial tone: generate programmatically — 425Hz sine wave, 1 second.
+
+---
+
+## Code Location Summary
+
+| File | What to change |
+|---|---|
+| `components/call/use-gemini-live.ts` | EQ filter, compressor, response delay, crackle/rustle playback |
+| `app/(pages)/claim/[sessionId]/_components/call-view.tsx` | Dial tone on connect, office ambient loop, call timer |
+| `components/call/use-tool-bridge.ts` | Trigger keyboard sounds on tool calls |
