@@ -25,3 +25,16 @@
 
 ### Notes
 TypeScript clean. All 4 DOD items satisfied.
+
+## 2026-04-25 — next-dennis-2: Inca light theme landing page
+
+**Brief:** next-dennis-2.md | **Commit:** 5c612b5 (local only)
+
+### Shipped
+- **globals.css:** Added Inca CSS tokens (`--inca-bg`, `--inca-text`, `--inca-green`, `--inca-green-accent`, `--inca-muted`) + body override.
+- **Landing page full redesign:** White background, black headings, green-700 primary CTA with hover state, gray-100 secondary CTA. Removed audio orb (belongs on call screen only).
+- **3-step hero visual:** Replaced orb with horizontal `Talk → Show → Payout` step flow — conveys the product story without decorative elements that don't match B2B aesthetic.
+- **Feature pills:** `bg-green-50 border-green-200 text-green-800` — matches Inca's green family.
+
+### Notes
+- No git push per brief — local commit only until 08:00 tomorrow.
