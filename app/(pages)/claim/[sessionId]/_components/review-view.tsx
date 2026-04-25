@@ -66,6 +66,7 @@ export function ReviewView({ sessionId }: { sessionId: string }) {
   const [isEditing, setIsEditing] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [form, setForm] = useState<DraftForm>(EMPTY_FORM);
+  const [estimatingTimedOut, setEstimatingTimedOut] = useState(false);
 
   useEffect(() => {
     if (!claim || isEditing) return;
@@ -84,6 +85,23 @@ export function ReviewView({ sessionId }: { sessionId: string }) {
   const isEstimating =
     claim?.status === "draft" && !claim.expectedPayoutHighEur;
   const isSubmitted = claim?.status === "in_review";
+
+  useEffect(() => {
+    if (!isEstimating) { setEstimatingTimedOut(false); return; }
+    const t = setTimeout(() => setEstimatingTimedOut(true), 5000);
+    return () => clearTimeout(t);
+  }, [isEstimating]);
+
+  const payoutTemplate = claim?.matchedPolicyType
+    ? getPolicyTemplate(claim.matchedPolicyType)
+    : null;
+  const deductibleEur = payoutTemplate?.deductibleEur ?? 0;
+  const depreciationPct = (() => {
+    if (!payoutTemplate?.depreciationRule) return 0;
+    const m = payoutTemplate.depreciationRule.match(/(\d+)%\s*per year/i);
+    if (!m) return 0;
+    return Math.min(parseInt(m[1]) * 2, 60);
+  })();
 
   const storedUploads = (claim?.requiredUploads ?? []) as RequiredUpload[];
   const requiredUploads: RequiredUpload[] =
@@ -356,7 +374,7 @@ export function ReviewView({ sessionId }: { sessionId: string }) {
             <Card className="mb-6">
               <CardContent className="py-4 px-4">
                 <p className="text-sm font-semibold mb-3">Estimated payout</p>
-                {isEstimating ? (
+                {isEstimating && !estimatingTimedOut ? (
                   <div className="space-y-2">
                     <Skeleton className="h-8 w-48" />
                     <Skeleton className="h-4 w-32" />
@@ -365,25 +383,36 @@ export function ReviewView({ sessionId }: { sessionId: string }) {
                       Researching retail prices…
                     </p>
                   </div>
+                ) : isEstimating && estimatingTimedOut ? (
+                  <p className="text-sm text-muted-foreground">
+                    Calculating estimate…
+                  </p>
                 ) : claim?.expectedPayoutHighEur ? (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <p className="text-2xl font-bold text-primary">
                       {claim.expectedPayoutLowEur?.toLocaleString("de-DE")} € –{" "}
                       {claim.expectedPayoutHighEur?.toLocaleString("de-DE")} €
                     </p>
-                    {claim.retailPriceEur && (
-                      <div className="text-xs text-muted-foreground space-y-1">
-                        <p>
-                          Retail price: ~
-                          {claim.retailPriceEur.toLocaleString("de-DE")} €
-                        </p>
-                        {claim.retailPriceSource && (
-                          <p className="truncate">
-                            Source: {claim.retailPriceSource}
-                          </p>
-                        )}
-                      </div>
-                    )}
+                    <div className="divide-y divide-border/40 text-sm">
+                      {claim.retailPriceEur != null && (
+                        <div className="flex justify-between py-1.5 text-muted-foreground">
+                          <span>Retail (Tavily)</span>
+                          <span>~{claim.retailPriceEur.toLocaleString("de-DE")} €</span>
+                        </div>
+                      )}
+                      {depreciationPct > 0 && (
+                        <div className="flex justify-between py-1.5 text-muted-foreground">
+                          <span>Depreciation</span>
+                          <span>−{depreciationPct}%</span>
+                        </div>
+                      )}
+                      {deductibleEur > 0 && (
+                        <div className="flex justify-between py-1.5 text-muted-foreground">
+                          <span>Deductible</span>
+                          <span>−{deductibleEur.toLocaleString("de-DE")} €</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">

@@ -121,9 +121,21 @@ export function CallView({ sessionId }: { sessionId: string }) {
 
   const inspectionRequested = claim?.visualInspectionRequested && !showCameraOverlay;
 
+  const statusText = tokenError
+    ? "GEMINI_API_KEY not set — add it to .env.local"
+    : state === "connecting"
+    ? "Connecting to Lina…"
+    : state === "connected"
+    ? "Connected · Lina is listening"
+    : state === "ended"
+    ? "Call ended"
+    : state === "error"
+    ? "Connection error"
+    : "Initializing…";
+
   return (
-    <main className="min-h-screen bg-background flex flex-col">
-      {/* Visual inspection overlay — its internal videoRef is passed to startVideo */}
+    <main className="min-h-[100dvh] bg-background flex flex-col overflow-x-hidden">
+      {/* Visual inspection overlay */}
       <InspectionOverlay
         isActive={showCameraOverlay}
         hint={inspectionHint}
@@ -140,7 +152,7 @@ export function CallView({ sessionId }: { sessionId: string }) {
             </p>
             <Button
               size="lg"
-              className="w-full h-16 text-base font-semibold bg-primary"
+              className="w-full h-14 text-base font-semibold bg-primary"
               onClick={() => setShowCameraOverlay(true)}
             >
               Start visual inspection
@@ -149,36 +161,14 @@ export function CallView({ sessionId }: { sessionId: string }) {
         </div>
       )}
 
-      {/* Main call UI */}
-      <div className="flex flex-col flex-1 p-4 pb-8 max-w-lg mx-auto w-full">
-        {/* Header */}
-        <div className="flex items-center justify-between py-3 mb-2">
-          <div>
-            <p className="text-xs text-muted-foreground">
-              {tokenError
-                ? "GEMINI_API_KEY not set — add it to .env.local"
-                : state === "connecting"
-                ? "Connecting to Lina…"
-                : state === "connected"
-                ? "Connected · Lina is listening"
-                : state === "ended"
-                ? "Call ended"
-                : state === "error"
-                ? "Connection error"
-                : "Initializing…"}
-            </p>
-          </div>
-          <Button
-            size="sm"
-            variant={state === "connected" ? "destructive" : "outline"}
-            onClick={handleEndCall}
-            className="text-xs"
-          >
-            {state === "connected" ? "End call" : "Back"}
-          </Button>
+      {/* Upper: status + orb + claim card */}
+      <div className="flex flex-col flex-1 px-4 pt-4 max-w-lg mx-auto w-full min-w-0">
+        {/* Status line */}
+        <div className="py-3 mb-2">
+          <p className="text-xs text-muted-foreground">{statusText}</p>
         </div>
 
-        {/* Audio orb — centered */}
+        {/* Audio orb — upper half */}
         <div className="flex justify-center py-8">
           <AudioOrb state={state} isSpeaking={isSpeaking} />
         </div>
@@ -189,9 +179,21 @@ export function CallView({ sessionId }: { sessionId: string }) {
         </p>
 
         {/* Live claim card */}
-        <ClaimCardLive claim={claim} />
+        <div className="flex-1 min-w-0">
+          <ClaimCardLive claim={claim} />
+        </div>
+      </div>
 
-
+      {/* Bottom CTA — min 48px, inside bottom 60% of viewport */}
+      <div className="px-4 pb-10 pt-4 max-w-lg mx-auto w-full">
+        <Button
+          size="lg"
+          className="w-full h-14 text-base"
+          variant={state === "connected" ? "destructive" : "outline"}
+          onClick={handleEndCall}
+        >
+          {state === "connected" ? "End call" : "Back"}
+        </Button>
       </div>
     </main>
   );

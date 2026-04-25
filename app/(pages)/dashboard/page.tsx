@@ -57,16 +57,8 @@ export default function DashboardPage() {
           Open a claim
         </Button>
 
-        <Button
-          variant="outline"
-          className="w-full mb-6"
-          onClick={() => router.push("/plans")}
-        >
-          My plans
-        </Button>
-
         {/* Claims list */}
-        <div className="space-y-3">
+        <div className="space-y-3 mb-6">
           <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
             Recent claims
           </h2>
@@ -79,7 +71,7 @@ export default function DashboardPage() {
           ) : claims.length === 0 ? (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground text-sm">
-                No claims yet. Tap above to open your first claim.
+                No claims yet. Open your first claim above.
               </CardContent>
             </Card>
           ) : (
@@ -113,6 +105,14 @@ export default function DashboardPage() {
             ))
           )}
         </div>
+
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={() => router.push("/plans")}
+        >
+          My plans
+        </Button>
 
       </div>
     </main>

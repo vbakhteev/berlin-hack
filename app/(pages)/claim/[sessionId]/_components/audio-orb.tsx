@@ -15,9 +15,12 @@ export function AudioOrb({ state, isSpeaking }: AudioOrbProps) {
       {isActive && isSpeaking && (
         <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
       )}
-      {/* Middle ring */}
+      {/* Middle ring — pulses faster when agent is speaking */}
       {isActive && (
-        <div className="absolute w-32 h-32 rounded-full bg-primary/10 animate-pulse" />
+        <div
+          className="absolute w-32 h-32 rounded-full bg-primary/10 animate-pulse"
+          style={{ animationDuration: isSpeaking ? "0.6s" : "2s" }}
+        />
       )}
       {/* Core orb */}
       <div
