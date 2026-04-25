@@ -14,3 +14,19 @@
 
 **Artifacts:** docs/vercel-env-checklist.md created. Status report at docs/agent-messages/2026-04-25-polish-to-konstantin-done.md.
 
+
+## 2026-04-25 — next-polish-2 brief
+
+**Brief:** Integrate Vbakhteev's c495286 push (video recording, transcript persistence, claim lifecycle + email notifications).
+
+**Build:** Green before and after — 0 TS errors.
+
+**Work done:**
+- `dashboard/page.tsx`: added `call` ("In call", bg-blue-400) and `rejected` ("Rejected", bg-red-500) to STATUS_COLORS + STATUS_LABELS
+- `convex/emails.ts`: changed hard throw on missing RESEND_API_KEY to `console.warn` + early return — demo-safe
+- Claim page routing for `"call"` status was already correct (no change needed)
+- Status report: `docs/agent-messages/2026-04-25-polish-to-konstantin-integration-done.md`
+
+**Commit:** 383b542 — pushed to origin/main
+
+**Status:** DOD complete. Idle, awaiting next brief.
