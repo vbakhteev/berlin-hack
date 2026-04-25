@@ -200,7 +200,7 @@ export function ReviewView({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <main className="min-h-screen bg-background p-4 pb-8">
+    <main className="min-h-[100dvh] bg-background p-4 pb-8">
       <div className="mx-auto max-w-lg">
         <div className="py-6 text-center">
           <h1 className="text-xl font-bold">{h1}</h1>

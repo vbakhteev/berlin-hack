@@ -114,12 +114,8 @@ export function CallView({ sessionId }: { sessionId: string }) {
     },
   });
 
-  // Auto-connect once API key and system prompt data are ready
-  useEffect(() => {
-    if (apiKey && currentUser && !hasConnected && state === "idle") {
-      connect(apiKey);
-    }
-  }, [apiKey, currentUser, hasConnected, state, connect]);
+  // Auto-connect removed — iOS Safari requires getUserMedia to be triggered
+  // by a direct user gesture. connect() is called from the "Start call" button.
 
   const handleEndCall = async () => {
     // Flush any in-progress inspection recording before disconnecting
@@ -169,8 +165,14 @@ export function CallView({ sessionId }: { sessionId: string }) {
 
   const inspectionRequested = (claim?.visualInspectionRequested || optimisticInspectionRequested) && !showCameraOverlay;
 
+  const handleStartCall = () => {
+    if (apiKey) connect(apiKey);
+  };
+
   const statusText = tokenError
     ? "GEMINI_API_KEY not set — add it to .env.local"
+    : state === "idle" && apiKey && currentUser
+    ? "Ready — tap Start call"
     : state === "connecting"
     ? "Connecting to Lina…"
     : state === "connected"
@@ -182,7 +184,7 @@ export function CallView({ sessionId }: { sessionId: string }) {
     : "Initializing…";
 
   return (
-    <main className="min-h-[100dvh] bg-background flex flex-col overflow-x-hidden">
+    <main className={`min-h-[100dvh] bg-background flex flex-col ${state === "connecting" || state === "connected" ? "overflow-hidden" : "overflow-x-hidden"}`}>
       {/* Visual inspection overlay */}
       <InspectionOverlay
         isActive={showCameraOverlay}
@@ -194,7 +196,7 @@ export function CallView({ sessionId }: { sessionId: string }) {
 
       {/* Inspection button overlay (appears when tool fires but camera not yet open) */}
       {inspectionRequested && (
-        <div className="fixed inset-0 bg-black/60 z-40 flex items-end p-6">
+        <div className="fixed inset-0 bg-black/60 z-40 flex items-end px-6 pt-6" style={{ paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))' }}>
           <div className="w-full max-w-lg mx-auto space-y-4">
             <p className="text-white text-center font-medium">
               {inspectionHint ?? "Show the damage to Lina"}
@@ -233,15 +235,22 @@ export function CallView({ sessionId }: { sessionId: string }) {
         </div>
       </div>
 
-      {/* Bottom CTA — min 48px, inside bottom 60% of viewport */}
-      <div className="px-4 pb-10 pt-4 max-w-lg mx-auto w-full">
+      {/* Bottom CTA — min 48px, clears iPhone home indicator */}
+      <div className="px-4 pt-4 max-w-lg mx-auto w-full" style={{ paddingBottom: 'calc(40px + env(safe-area-inset-bottom, 0px))' }}>
         <Button
           size="lg"
           className="w-full h-14 text-base"
-          variant={state === "connected" ? "destructive" : "outline"}
-          onClick={handleEndCall}
+          variant={state === "connected" ? "destructive" : state === "idle" && !!apiKey && !!currentUser ? "default" : "outline"}
+          disabled={state === "connecting" || (!tokenError && (!apiKey || !currentUser) && state === "idle")}
+          onClick={state === "idle" && !!apiKey && !!currentUser ? handleStartCall : handleEndCall}
         >
-          {state === "connected" ? "End call" : "Back"}
+          {state === "connected"
+            ? "End call"
+            : state === "idle" && !!apiKey && !!currentUser
+            ? "Start call"
+            : state === "connecting"
+            ? "Connecting…"
+            : "Back"}
         </Button>
       </div>
     </main>
