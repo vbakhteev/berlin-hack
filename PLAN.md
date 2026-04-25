@@ -1,4 +1,5 @@
 # Inca Track — Voice Claims Agent
+
 ## 24h Solo Build Plan
 
 > Hackathon: Big Berlin Hack #2, Inca track. Submission: Sunday 2026-04-26 14:00.
@@ -9,11 +10,11 @@
 
 ## 1. Executive Summary
 
-We are building **the policyholder-side companion to Inca's MARS** — a mobile, voice-first FNOL (First Notice of Loss) agent that takes an insurance claim by phone-style call, narrates its reasoning, surfaces the policy's deductible/depreciation rules in real time, and walks the claimant through a live damage video inspection without a form-gate at the end. We win the Inca track because Inca explicitly does not have a claimant-side story (back-office TPA only), and the CEO's recent thesis says *Dunkelverarbeitungsquote (straight-through-processing %) is the wrong KPI; indemnity quality is*. Our agent is built around that thesis: it tells the claimant about deductibles and depreciation upfront, mid-call, on screen, before they finish describing the loss.
+We are building **the policyholder-side companion to Inca's MARS** — a mobile, voice-first FNOL (First Notice of Loss) agent that takes an insurance claim by phone-style call, narrates its reasoning, surfaces the policy's deductible/depreciation rules in real time, and walks the claimant through a live damage video inspection without a form-gate at the end. We win the Inca track because Inca explicitly does not have a claimant-side story (back-office TPA only), and the CEO's recent thesis says _Dunkelverarbeitungsquote (straight-through-processing %) is the wrong KPI; indemnity quality is_. Our agent is built around that thesis: it tells the claimant about deductibles and depreciation upfront, mid-call, on screen, before they finish describing the loss.
 
 **One-sentence wow:** "Open the app, tap one button, talk to the agent for 90 seconds, show your damage on camera, and you walk away knowing your deductible, your depreciation, and your expected payout — before you've uploaded a single document."
 
-**Why this beats the brief:** The public framing was "fool >50% of jurors into voting human." The user has confirmed in person with Inca that the real win condition is *best customer experience for filing a claim*. Sounding human is the quality bar that *enables* CX, not the goal. Every design decision below is graded against "what makes filing this claim faster, smoother, and more trustworthy for the claimant."
+**Why this beats the brief:** The public framing was "fool >50% of jurors into voting human." The user has confirmed in person with Inca that the real win condition is _best customer experience for filing a claim_. Sounding human is the quality bar that _enables_ CX, not the goal. Every design decision below is graded against "what makes filing this claim faster, smoother, and more trustworthy for the claimant."
 
 ---
 
@@ -36,12 +37,12 @@ There are two journey designs in the brief and they conflict:
 6. **Visual inspection trigger.** Either policy requires it (`request_visual_inspection` fires automatically) or the claimant says "I can show you" (agent fires the same tool). Big overlay button appears: **Start visual inspection**. Tapping it opens camera, video stream goes to the agent.
 7. **Damage inspection** (~30s). Agent narrates what it sees; tool calls update the claim card with damage description.
 8. **Voice-confirmation close.** Agent reads back the claim summary, asks "does that sound right?" Claimant says yes → `finalize_claim` tool fires.
-9. **Confirmation screen.** Claim summary, deductible, depreciation, retail-price-from-Tavily, expected payout range. Email-link CTA: **Finish on a bigger screen.** Inline "I have my invoice now" expand-to-upload is also present (demo escape hatch — for the live pitch we'll skip this and just talk through it).
+9. **Confirmation screen.** Claim summary, deductible, depreciation, retail-price-from-Tavily, expected payout range.
 10. **Dashboard** shows the new claim with status "Awaiting documentation" (or "Submitted" if invoice was uploaded inline).
 
 ### Production path (what we tell the jury we'd ship)
 
-After step 8, instead of the inline form path, we send the claimant an email with a one-click link to the form session, pre-populated with everything from the call. They open it later when they have the invoice in hand. Two-stage by design: the *story* is captured at the scene; the *evidence* is uploaded when convenient. This is the user's saved preference and the actual right answer for real-world FNOL — the moment after a car accident is the worst moment to ask someone to find a receipt.
+After step 8, instead of the inline form path, we send the claimant an email with a one-click link to the form session, pre-populated with everything from the call. They open it later when they have the invoice in hand. Two-stage by design: the _story_ is captured at the scene; the _evidence_ is uploaded when convenient. This is the user's saved preference and the actual right answer for real-world FNOL — the moment after a car accident is the worst moment to ask someone to find a receipt.
 
 In the pitch, we will explicitly say: "the demo shows the inline path so you see the round-trip in 5 minutes; the production design splits stage 1 (scene capture, voice + video) from stage 2 (documentation upload), because nobody has an invoice on a wet highway at 11pm."
 
@@ -91,7 +92,7 @@ In the pitch, we will explicitly say: "the demo shows the inline path so you see
 │   claimFormSessions        │         │   - serverContent transcripts   │
 │   claimMedia (storage IDs) │         │                                 │
 │                            │         └─────────────────────────────────┘
-│  Functions:                                                              
+│  Functions:
 │   mutations: tools.*       │         ┌────────────────────────────────┐
 │   queries:   claims.live   │         │  Tavily API                     │
 │   actions:   tavily.search │◀────────│  /search (REST, server-side)    │
@@ -116,14 +117,14 @@ In the pitch, we will explicitly say: "the demo shows the inline path so you see
 
 ### Latency budget
 
-| Hop | Target | Ceiling |
-|---|---|---|
-| Mic → Gemini (audio frame) | <150ms | 300ms |
-| Gemini tool decision → emitted toolCall | model-bound | n/a |
-| toolCall → Convex mutation completes | <80ms | 200ms |
-| Convex subscription → React paint | <80ms | 200ms |
-| **Total tool-call-to-UI-paint** | **<300ms** | **<500ms** |
-| Gemini TTS audio out start | <500ms after agent decision | 1000ms |
+| Hop                                     | Target                      | Ceiling    |
+| --------------------------------------- | --------------------------- | ---------- |
+| Mic → Gemini (audio frame)              | <150ms                      | 300ms      |
+| Gemini tool decision → emitted toolCall | model-bound                 | n/a        |
+| toolCall → Convex mutation completes    | <80ms                       | 200ms      |
+| Convex subscription → React paint       | <80ms                       | 200ms      |
+| **Total tool-call-to-UI-paint**         | **<300ms**                  | **<500ms** |
+| Gemini TTS audio out start              | <500ms after agent decision | 1000ms     |
 
 The latency-sensitive path is `update_claim_field` and `request_visual_inspection`. If the inspection button doesn't appear within ~500ms of the agent saying "could you show me the damage," the demo loses its magic. Test this end-to-end before anything else.
 
@@ -215,14 +216,14 @@ export default defineSchema({
       v.literal("travel"),
       v.literal("pet")
     ),
-    insurer: v.string(),                  // e.g. "Allianz", "HUK"
+    insurer: v.string(), // e.g. "Allianz", "HUK"
     policyNumber: v.string(),
-    coverageSummary: v.string(),          // 1-2 sentence plain-English summary
-    deductibleEur: v.number(),            // e.g. 150
+    coverageSummary: v.string(), // 1-2 sentence plain-English summary
+    deductibleEur: v.number(), // e.g. 150
     depreciationRule: v.optional(v.string()), // "10% per year, straight-line"
     requiresVisualInspection: v.boolean(),
     coverageLimitEur: v.optional(v.number()),
-    exclusions: v.array(v.string()),      // ["water damage", "intentional"]
+    exclusions: v.array(v.string()), // ["water damage", "intentional"]
     sourcePdfStorageId: v.optional(v.id("_storage")),
     extractedAt: v.string(),
     extractedBy: v.union(v.literal("seeded"), v.literal("gemini-vision")),
@@ -232,13 +233,13 @@ export default defineSchema({
 
   claims: defineTable({
     userId: v.id("users"),
-    sessionId: v.string(),                // stable id used by Gemini session
+    sessionId: v.string(), // stable id used by Gemini session
     matchedPolicyId: v.optional(v.id("policies")),
     status: v.union(
-      v.literal("active"),                // call in progress
-      v.literal("awaiting_documentation"),// voice closed, waiting on form
-      v.literal("submitted"),             // form complete
-      v.literal("estimating"),            // Tavily running
+      v.literal("active"), // call in progress
+      v.literal("awaiting_documentation"), // voice closed, waiting on form
+      v.literal("submitted"), // form complete
+      v.literal("estimating"), // Tavily running
       v.literal("ready_for_review")
     ),
     stage: v.union(
@@ -252,24 +253,28 @@ export default defineSchema({
     ),
     visualInspectionRequested: v.boolean(),
     visualInspectionRequestedBy: v.optional(
-      v.union(v.literal("policy_required"), v.literal("user_offered"), v.literal("agent_suggested"))
+      v.union(
+        v.literal("policy_required"),
+        v.literal("user_offered"),
+        v.literal("agent_suggested")
+      )
     ),
     // live form fields (filled by update_claim_field)
     incidentType: v.optional(v.string()),
     incidentDate: v.optional(v.string()),
     incidentLocation: v.optional(v.string()),
     productCategory: v.optional(v.string()), // "laptop", "phone"
-    productBrandModel: v.optional(v.string()),// "MacBook Pro 14 M3"
+    productBrandModel: v.optional(v.string()), // "MacBook Pro 14 M3"
     damageSummary: v.optional(v.string()),
     estimatedDamageEur: v.optional(v.number()),
     callerEmail: v.optional(v.string()),
     callerPhone: v.optional(v.string()),
     // post-call computed
-    retailPriceEur: v.optional(v.number()),  // Tavily result
+    retailPriceEur: v.optional(v.number()), // Tavily result
     retailPriceSource: v.optional(v.string()),
     expectedPayoutLowEur: v.optional(v.number()),
     expectedPayoutHighEur: v.optional(v.number()),
-    transcriptText: v.optional(v.string()),  // full transcript dumped at finalize
+    transcriptText: v.optional(v.string()), // full transcript dumped at finalize
     confirmationImageStorageId: v.optional(v.id("_storage")),
     createdAt: v.string(),
     finalizedAt: v.optional(v.string()),
@@ -289,10 +294,10 @@ export default defineSchema({
       v.literal("stage_transition"),
       v.literal("system")
     ),
-    payload: v.any(),                     // schema varies by type
+    payload: v.any(), // schema varies by type
     toolName: v.optional(v.string()),
     reasoningTrace: v.optional(v.string()),
-    timestamp: v.number(),                // Date.now()
+    timestamp: v.number(), // Date.now()
   })
     .index("by_claim", ["claimId", "timestamp"])
     .index("by_claim_type", ["claimId", "type"]),
@@ -300,7 +305,7 @@ export default defineSchema({
   claimFormSessions: defineTable({
     claimId: v.id("claims"),
     userId: v.id("users"),
-    token: v.string(),                    // opaque, emailed link
+    token: v.string(), // opaque, emailed link
     status: v.union(
       v.literal("pending"),
       v.literal("opened"),
@@ -329,6 +334,7 @@ export default defineSchema({
 ```
 
 **Indexing notes.**
+
 - `claims.by_session` lets the Gemini WebSocket lookup the active claim by its session id without needing a Convex doc id round-trip.
 - `claimEvents.by_claim` is the audit-log read path; it's append-only and ordered by `timestamp` for chronological replay.
 - `claimEvents` doubles as the EU AI Act / DORA audit artifact we tease in the pitch (every tool call + reasoning trace + transcript turn, immutable). This is a deliberate Inca-research-driven design choice.
@@ -415,6 +421,7 @@ Procedure:
 All tool schemas live in `lib/agent/tool-schemas.ts` and are passed to Gemini Live in `setup.tools[].functionDeclarations`. Inputs/outputs use Gemini's JSON-schema-ish format.
 
 **1. `match_policy`**
+
 ```ts
 {
   name: "match_policy",
@@ -434,6 +441,7 @@ All tool schemas live in `lib/agent/tool-schemas.ts` and are passed to Gemini Li
 ```
 
 **2. `check_coverage`**
+
 ```ts
 {
   name: "check_coverage",
@@ -450,6 +458,7 @@ All tool schemas live in `lib/agent/tool-schemas.ts` and are passed to Gemini Li
 ```
 
 **3. `update_claim_field`**
+
 ```ts
 {
   name: "update_claim_field",
@@ -474,6 +483,7 @@ All tool schemas live in `lib/agent/tool-schemas.ts` and are passed to Gemini Li
 ```
 
 **4. `request_visual_inspection`**
+
 ```ts
 {
   name: "request_visual_inspection",
@@ -499,6 +509,7 @@ All tool schemas live in `lib/agent/tool-schemas.ts` and are passed to Gemini Li
 ```
 
 **5. `finalize_claim`**
+
 ```ts
 {
   name: "finalize_claim",
@@ -519,6 +530,7 @@ All tool schemas live in `lib/agent/tool-schemas.ts` and are passed to Gemini Li
 ```
 
 **6. `research_replacement_price`** (called by post-call action, not by the live agent — but it's a tool in MARS-like spirit)
+
 ```ts
 {
   // server-side only; invoked by Convex action after finalize_claim
@@ -533,7 +545,7 @@ All tool schemas live in `lib/agent/tool-schemas.ts` and are passed to Gemini Li
 
 ### State machine
 
-The agent's "stage" is mirrored in the `claims.stage` column. We don't try to enforce stage transitions on the model side (Gemini Live decides what to say next based on context). We just *log* stage transitions whenever a tool call indicates a transition, so the UI can show progress and the audit log captures it.
+The agent's "stage" is mirrored in the `claims.stage` column. We don't try to enforce stage transitions on the model side (Gemini Live decides what to say next based on context). We just _log_ stage transitions whenever a tool call indicates a transition, so the UI can show progress and the audit log captures it.
 
 ```
 greeting
@@ -560,9 +572,9 @@ closed
 
 ### Narrated thought pattern
 
-Gemini Live supports streaming tool calls *and* speech in parallel. We instruct the agent to verbalize what it's doing right before calling a tool. So the user hears:
+Gemini Live supports streaming tool calls _and_ speech in parallel. We instruct the agent to verbalize what it's doing right before calling a tool. So the user hears:
 
-> "Let me pull up your policy real quick…" *(match_policy fires; ~150ms)* "…okay, I see this is on your electronics policy with HUK. Quick heads-up: that one has a 150-euro deductible and depreciates 10% per year, so an older laptop will see less than full retail." *(check_coverage fired during that sentence)*
+> "Let me pull up your policy real quick…" _(match_policy fires; ~150ms)_ "…okay, I see this is on your electronics policy with HUK. Quick heads-up: that one has a 150-euro deductible and depreciates 10% per year, so an older laptop will see less than full retail." _(check_coverage fired during that sentence)_
 
 This is the "live coverage caveat" wow moment. It maps directly to Nag's Dunkelverarbeitungsquote thesis: we're optimizing for indemnity quality and claimant trust, not for processing speed.
 
@@ -599,7 +611,11 @@ The cost is one extra round-trip (browser → Convex → browser). On a wired-LA
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
-export default function CallScreen({ params }: { params: { sessionId: string } }) {
+export default function CallScreen({
+  params,
+}: {
+  params: { sessionId: string };
+}) {
   const claim = useQuery(api.claims.bySession, { sessionId: params.sessionId });
   // claim updates reactively whenever any tool call patches it
   // ...
@@ -715,7 +731,7 @@ export const researchReplacementPrice = action({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.TAVILY_API_KEY}`,
+        Authorization: `Bearer ${process.env.TAVILY_API_KEY}`,
       },
       body: JSON.stringify({
         query,
@@ -758,7 +774,7 @@ const retail = claim.retailPriceEur ?? claim.estimatedDamageEur;
 const deductible = policy.deductibleEur;
 const depPct = parseDepreciation(policy.depreciationRule, claim.purchaseAge);
 
-const lo = Math.max(0, retail * (1 - depPct - 0.10) - deductible);
+const lo = Math.max(0, retail * (1 - depPct - 0.1) - deductible);
 const hi = Math.max(0, retail * (1 - depPct) - deductible);
 ```
 
@@ -787,9 +803,6 @@ Confidence range is shown: "Estimated payout: 1,250 EUR – 1,720 EUR (after 150
 │ │ Depreciation:    -25%       │    │
 │ │ Deductible:      -150 €     │    │
 │ └─────────────────────────────┘    │
-│                                     │
-│ [ FINISH ON A BIGGER SCREEN ]      │
-│  We'll email you a link.            │
 │                                     │
 │ ▸ I have my invoice now (inline)   │
 └─────────────────────────────────────┘
@@ -826,25 +839,24 @@ export const generateClaimCard = action({
 
 ### The literal beats (with target timestamps)
 
-| Time | Beat | What the audience sees | Pitch line over it |
-|---|---|---|---|
-| 0:00 | Open the app | Phone unlock → app icon → dashboard with one CTA | "Inca runs the back office. We're the front door." |
-| 0:05 | Tap "Open a claim" | FaceTime-like screen, audio orb pulses, "Connecting…" → "Connected" | "One tap. No phone tree." |
-| 0:15 | Voice opener | Lina: "Hey, I'm Lina. What happened?" | (let it breathe) |
-| 0:20 | "My MacBook fell off my desk and the screen is cracked." | claim card on screen: incidentType: accidental drop fills in | "She's filling the form for me as I talk." |
-| 0:30 | Lina: "Let me check your policy real quick…" *match_policy + check_coverage fire* "…this is on your HUK electronics policy. Heads up: 150-euro deductible and 10% depreciation per year. Just so you know what to expect." | claim card shows policy badge + caveat banner | "**This is the moment.** Inca's CEO says straight-through-processing is the wrong KPI; indemnity quality is. We're showing the deductible *before* she's even told us the rest of the story." |
-| 0:50 | Three short fact questions answered, claim card filling live | productBrandModel, incidentDate, location all populate | (silence — let the UI speak) |
-| 1:30 | "I can show you the damage." → request_visual_inspection fires → big overlay button appears | full-screen "Start visual inspection" button | "Tool call to UI in under 300ms." |
-| 1:35 | Tap the button → camera opens → shows the cracked screen | video stream visible | (let the agent narrate) |
-| 1:50 | Lina: "Yeah, I can see the diagonal crack. I've noted it." → update_claim_field with damageSummary | claim card adds damage line | |
-| 2:10 | Lina reads back summary: "MacBook Pro 14, dropped on Apr 23, screen cracked. Estimated 800 euros damage. Sound right?" | summary highlight | |
-| 2:20 | "Yes." → finalize_claim fires | call ends, fade to confirmation screen | "Voice-confirmation close. No post-call form gate." |
-| 2:30 | Confirmation screen renders with skeleton on payout range | summary + skeleton | "Tavily is researching the retail price right now." |
-| 2:45 | Tavily returns → range fills in: 1,250 – 1,720 € | payout breakdown visible | "Indemnity-quality math. Live, not batch." |
-| 3:00 | "Finish on a bigger screen" CTA | email-handoff explanation | "Production we'd email this and let her upload the invoice when she's home. Demo flow shows it inline." |
-| 3:20 | Show dashboard → claim row visible with status | dashboard | |
-| 3:30 | **Pitch close** | (hand off to slide) | "Inca has 250 agents in MARS. They told us they don't have a claimant-side story. This is it: the policyholder's companion. Agent-to-agent FNOL handoff. EU AI Act audit log on every tool call. Built for indemnity quality, not for the vanity metric." |
-| 4:00–5:00 | Q&A buffer | | |
+| Time      | Beat                                                                                                                                                                                                                       | What the audience sees                                              | Pitch line over it                                                                                                                                                                                                                                        |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- | ------------------------- | ------------------------------------------------------------------------------------------------------- |
+| 0:00      | Open the app                                                                                                                                                                                                               | Phone unlock → app icon → dashboard with one CTA                    | "Inca runs the back office. We're the front door."                                                                                                                                                                                                        |
+| 0:05      | Tap "Open a claim"                                                                                                                                                                                                         | FaceTime-like screen, audio orb pulses, "Connecting…" → "Connected" | "One tap. No phone tree."                                                                                                                                                                                                                                 |
+| 0:15      | Voice opener                                                                                                                                                                                                               | Lina: "Hey, I'm Lina. What happened?"                               | (let it breathe)                                                                                                                                                                                                                                          |
+| 0:20      | "My MacBook fell off my desk and the screen is cracked."                                                                                                                                                                   | claim card on screen: incidentType: accidental drop fills in        | "She's filling the form for me as I talk."                                                                                                                                                                                                                |
+| 0:30      | Lina: "Let me check your policy real quick…" _match_policy + check_coverage fire_ "…this is on your HUK electronics policy. Heads up: 150-euro deductible and 10% depreciation per year. Just so you know what to expect." | claim card shows policy badge + caveat banner                       | "**This is the moment.** Inca's CEO says straight-through-processing is the wrong KPI; indemnity quality is. We're showing the deductible _before_ she's even told us the rest of the story."                                                             |
+| 0:50      | Three short fact questions answered, claim card filling live                                                                                                                                                               | productBrandModel, incidentDate, location all populate              | (silence — let the UI speak)                                                                                                                                                                                                                              |
+| 1:30      | "I can show you the damage." → request_visual_inspection fires → big overlay button appears                                                                                                                                | full-screen "Start visual inspection" button                        | "Tool call to UI in under 300ms."                                                                                                                                                                                                                         |
+| 1:35      | Tap the button → camera opens → shows the cracked screen                                                                                                                                                                   | video stream visible                                                | (let the agent narrate)                                                                                                                                                                                                                                   |
+| 1:50      | Lina: "Yeah, I can see the diagonal crack. I've noted it." → update_claim_field with damageSummary                                                                                                                         | claim card adds damage line                                         |                                                                                                                                                                                                                                                           |
+| 2:10      | Lina reads back summary: "MacBook Pro 14, dropped on Apr 23, screen cracked. Estimated 800 euros damage. Sound right?"                                                                                                     | summary highlight                                                   |                                                                                                                                                                                                                                                           |
+| 2:20      | "Yes." → finalize_claim fires                                                                                                                                                                                              | call ends, fade to confirmation screen                              | "Voice-confirmation close. No post-call form gate."                                                                                                                                                                                                       |
+| 2:30      | Confirmation screen renders with skeleton on payout range                                                                                                                                                                  | summary + skeleton                                                  | "Tavily is researching the retail price right now."                                                                                                                                                                                                       |
+| 2:45      | Tavily returns → range fills in: 1,250 – 1,720 €                                                                                                                                                                           | payout breakdown visible                                            | "Indemnity-quality math. Live, not batch."                                                                                                                                                                                                                |     | email-handoff explanation | "Production we'd email this and let her upload the invoice when she's home. Demo flow shows it inline." |
+| 3:20      | Show dashboard → claim row visible with status                                                                                                                                                                             | dashboard                                                           |                                                                                                                                                                                                                                                           |
+| 3:30      | **Pitch close**                                                                                                                                                                                                            | (hand off to slide)                                                 | "Inca has 250 agents in MARS. They told us they don't have a claimant-side story. This is it: the policyholder's companion. Agent-to-agent FNOL handoff. EU AI Act audit log on every tool call. Built for indemnity quality, not for the vanity metric." |
+| 4:00–5:00 | Q&A buffer                                                                                                                                                                                                                 |                                                                     |                                                                                                                                                                                                                                                           |
 
 ### Moments meant to land
 
@@ -859,17 +871,17 @@ export const generateClaimCard = action({
 
 Big Berlin Hack judges on **creativity, technical complexity, partner-tech use.**
 
-| Feature | Creativity | Tech complexity | Partner |
-|---|---|---|---|
-| Voice + video bidi via Gemini Live (in browser, ephemeral token) | medium | **high** (WebSocket, audio pipeline, tool-call routing) | **Gemini Live (DeepMind)** |
-| Tavily price research mid-flow | medium | medium (action + parsing fallback) | **Tavily** |
-| Gemini image-gen claim card | low | low | **Gemini image-gen** |
-| Live claim card filling via Convex subscription | **high** | **high** (real-time multi-screen sync) | Convex |
-| Coverage caveat read aloud upfront (Nag thesis) | **high** (it's a product opinion, not a feature) | medium | n/a |
-| EU AI Act / DORA audit log (claimEvents) | medium | low | n/a (Inca-specific hook) |
-| Voice-confirmation close (no form gate) | **high** | medium | n/a |
-| PDF policy ingest via Gemini Vision | medium | medium | Gemini multimodal |
-| Two-stage email-later production design | **high** (UX insight, not feature) | low | n/a |
+| Feature                                                          | Creativity                                       | Tech complexity                                         | Partner                    |
+| ---------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------- | -------------------------- |
+| Voice + video bidi via Gemini Live (in browser, ephemeral token) | medium                                           | **high** (WebSocket, audio pipeline, tool-call routing) | **Gemini Live (DeepMind)** |
+| Tavily price research mid-flow                                   | medium                                           | medium (action + parsing fallback)                      | **Tavily**                 |
+| Gemini image-gen claim card                                      | low                                              | low                                                     | **Gemini image-gen**       |
+| Live claim card filling via Convex subscription                  | **high**                                         | **high** (real-time multi-screen sync)                  | Convex                     |
+| Coverage caveat read aloud upfront (Nag thesis)                  | **high** (it's a product opinion, not a feature) | medium                                                  | n/a                        |
+| EU AI Act / DORA audit log (claimEvents)                         | medium                                           | low                                                     | n/a (Inca-specific hook)   |
+| Voice-confirmation close (no form gate)                          | **high**                                         | medium                                                  | n/a                        |
+| PDF policy ingest via Gemini Vision                              | medium                                           | medium                                                  | Gemini multimodal          |
+| Two-stage email-later production design                          | **high** (UX insight, not feature)               | low                                                     | n/a                        |
 
 The **Inca-track-specific** strengths are the items in the bottom half of that table. The partner-tech checkboxes are the top half. We hit Gemini Live, Tavily, and Gemini image-gen explicitly; we hit Convex for real-time. We do not waste cycles trying to cram in other partner tech we don't need (no Lovable, no Gradium, no Pioneer — they fight for attention without adding to the Inca pitch).
 
@@ -883,6 +895,7 @@ Ranked by demo-blocking severity.
 
 **Symptom:** mic permission flickers, audio buffer underruns, WebSocket dies on background tab, AudioWorklet not available.
 **Mitigation:**
+
 - Test on the actual demo phone (iPhone) by hour 4, before any UI polish.
 - Backup: ship Chrome-on-Android as the demo device, where the audio stack is more forgiving.
 - Backup-backup: pre-record the call and play it as a screen video. (Last resort.)
@@ -891,6 +904,7 @@ Ranked by demo-blocking severity.
 
 **Symptom:** Lina hears herself, gets into a feedback loop, transcribes her own TTS as user speech.
 **Mitigation:**
+
 - Wear headphones for the demo. Non-negotiable.
 - Implement a simple half-duplex mute: mute mic while Gemini's TTS is playing. We get this signal from the Live API's `serverContent.modelTurn` boundaries.
 
@@ -898,14 +912,16 @@ Ranked by demo-blocking severity.
 
 **Symptom:** inspection button appears 1.5 seconds late, demo magic dies.
 **Mitigation:**
+
 - Hotspot the phone off mobile data; do not trust venue wifi.
 - Pre-warm the Convex subscription on page load (subscribe 5s before the call starts).
-- Local optimistic UI: as a *belt-and-suspenders*, set a local React state when the toolCall arrives in the browser, *and* fire the Convex mutation. The UI checks `localFlag || claim.visualInspectionRequested`. (This contradicts what I said in §6 — make the call. Recommendation: do this for `request_visual_inspection` only, not for `update_claim_field`, because the inspection button is the load-bearing visual moment.)
+- Local optimistic UI: as a _belt-and-suspenders_, set a local React state when the toolCall arrives in the browser, _and_ fire the Convex mutation. The UI checks `localFlag || claim.visualInspectionRequested`. (This contradicts what I said in §6 — make the call. Recommendation: do this for `request_visual_inspection` only, not for `update_claim_field`, because the inspection button is the load-bearing visual moment.)
 
 ### R4 (HIGH) — Tool call reliability (model declines to call)
 
 **Symptom:** Gemini Live decides to talk instead of calling `match_policy`, claim card never fills.
 **Mitigation:**
+
 - System prompt is explicit and mandatory ("call match_policy as soon as you have a hypothesis, do not wait").
 - Tool descriptions are imperative.
 - Add a 4-second deadline: if no `match_policy` by 4s post-greeting, show a fallback UI hint ("Tap to retry connection" — but really just kicks off a deterministic match locally based on a keyword regex on the transcript). This is duct tape; only ship if we see flakiness in testing.
@@ -914,6 +930,7 @@ Ranked by demo-blocking severity.
 
 **Symptom:** Tavily takes 8s, returns no plausible price, confirmation screen looks broken.
 **Mitigation:**
+
 - Action has a 3s timeout. If timeout, use FALLBACK_PRICES table.
 - Show "Estimating retail price…" skeleton with a graceful fade-in/fade-out.
 - For the demo, pre-seed one common product (MacBook Pro 14) so Tavily has near-perfect results.
@@ -935,29 +952,30 @@ Today is Saturday 2026-04-25. Submission Sunday 2026-04-26 14:00. We're targetin
 
 ### Hour-by-hour
 
-| Hours | Track A (data + agent) | Track B (UI) | Output |
-|---|---|---|---|
-| **H0–H1** (now) | Read this plan. Confirm Gemini Live access path (key vs ephemeral). Spike a 30-line "hello Gemini Live" page. | — | Voice-out heard from a browser. Go/no-go on token strategy. |
-| **H1–H3** | Schema additions to `convex/schema.ts`. Push. Generate types. Write `policies.seedSample` + sample JSONs. | Skeleton of `/claim/[sessionId]/page.tsx`. AudioOrb component. | Convex types in client. Empty call screen renders. |
-| **H3–H5** | `useGeminiLive` hook: setup message, audio pipeline (PCM16 base64 frames), receive audio. Tool call dispatch via `useToolBridge`. | `claim-card-live.tsx` reactive to `useQuery(api.claims.bySession)`. | Two-way audio works on the demo phone. Card subscribes. |
-| **H5–H7** | `convex/tools.ts`: `matchPolicy`, `updateClaimField`, `requestVisualInspection`, `finalizeClaim` mutations. `convex/events.ts` audit-log helper. System prompt builder. | Inspection overlay component. Mock the toolCall from devtools to verify subscription path. | Tool calls patch claims. UI updates within latency budget. |
-| **H7–H9** | Wire system prompt + tool declarations into Gemini Live setup. End-to-end voice → tool → UI test. | Onboarding `/onboarding/page.tsx` with sample-policy seeding. Dashboard claim list. | First end-to-end demo run possible. |
-| **H9–H10** | **Sleep / break**. (Solo dev. Don't be a hero. 1 hour minimum.) | | |
-| **H10–H12** | Video pipeline (camera → JPEG frames to Gemini). Test on phone. | Confirmation screen layout. Email-handoff CTA. | Visual inspection works end-to-end. |
-| **H12–H14** | `convex/tavily.ts` action with fallback table. `claims.computePayoutRange` mutation. | Confirmation screen subscribes, renders payout range. | Tavily integrated. |
-| **H14–H16** | `geminiVision.extractPolicy` action (PDF onboarding) — **only if ahead**. Otherwise skip; sample policies are enough. | Form-link page `/form/[token]/page.tsx` (skeleton; demo doesn't open it). | Onboarding feels real. |
-| **H16–H17** | Email send action (Resend). Optional. | Polish: empty states, loading skeletons, transitions. | If skipped, we just don't open the inbox in the demo. |
-| **H17–H18** | **Sleep**. Minimum 1 hour. | | |
-| **H18–H20** | Audit-log viewer at `/claim/[id]/audit` (read-only, very simple). This is the EU AI Act / DORA prop. | Full demo dry run on the phone. Time it. | We know if we're at 4:30 or 6:00. |
-| **H20–H22** | Cuts based on dry run. Likely: drop image-gen, drop PDF upload UI, drop email send. | Pitch slides (1 slide is fine). Backup screen recording. | Shippable. |
-| **H22–H23** | Final dry run. Check audio levels. Test wifi + hotspot fallback. | | Ready. |
-| **H23–H24** | Submit. Buffer for unforeseen. | | |
+| Hours           | Track A (data + agent)                                                                                                                                                  | Track B (UI)                                                                               | Output                                                      |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| **H0–H1** (now) | Read this plan. Confirm Gemini Live access path (key vs ephemeral). Spike a 30-line "hello Gemini Live" page.                                                           | —                                                                                          | Voice-out heard from a browser. Go/no-go on token strategy. |
+| **H1–H3**       | Schema additions to `convex/schema.ts`. Push. Generate types. Write `policies.seedSample` + sample JSONs.                                                               | Skeleton of `/claim/[sessionId]/page.tsx`. AudioOrb component.                             | Convex types in client. Empty call screen renders.          |
+| **H3–H5**       | `useGeminiLive` hook: setup message, audio pipeline (PCM16 base64 frames), receive audio. Tool call dispatch via `useToolBridge`.                                       | `claim-card-live.tsx` reactive to `useQuery(api.claims.bySession)`.                        | Two-way audio works on the demo phone. Card subscribes.     |
+| **H5–H7**       | `convex/tools.ts`: `matchPolicy`, `updateClaimField`, `requestVisualInspection`, `finalizeClaim` mutations. `convex/events.ts` audit-log helper. System prompt builder. | Inspection overlay component. Mock the toolCall from devtools to verify subscription path. | Tool calls patch claims. UI updates within latency budget.  |
+| **H7–H9**       | Wire system prompt + tool declarations into Gemini Live setup. End-to-end voice → tool → UI test.                                                                       | Onboarding `/onboarding/page.tsx` with sample-policy seeding. Dashboard claim list.        | First end-to-end demo run possible.                         |
+| **H9–H10**      | **Sleep / break**. (Solo dev. Don't be a hero. 1 hour minimum.)                                                                                                         |                                                                                            |                                                             |
+| **H10–H12**     | Video pipeline (camera → JPEG frames to Gemini). Test on phone.                                                                                                         | Confirmation screen layout. Email-handoff CTA.                                             | Visual inspection works end-to-end.                         |
+| **H12–H14**     | `convex/tavily.ts` action with fallback table. `claims.computePayoutRange` mutation.                                                                                    | Confirmation screen subscribes, renders payout range.                                      | Tavily integrated.                                          |
+| **H14–H16**     | `geminiVision.extractPolicy` action (PDF onboarding) — **only if ahead**. Otherwise skip; sample policies are enough.                                                   | Form-link page `/form/[token]/page.tsx` (skeleton; demo doesn't open it).                  | Onboarding feels real.                                      |
+| **H16–H17**     | Email send action (Resend). Optional.                                                                                                                                   | Polish: empty states, loading skeletons, transitions.                                      | If skipped, we just don't open the inbox in the demo.       |
+| **H17–H18**     | **Sleep**. Minimum 1 hour.                                                                                                                                              |                                                                                            |                                                             |
+| **H18–H20**     | Audit-log viewer at `/claim/[id]/audit` (read-only, very simple). This is the EU AI Act / DORA prop.                                                                    | Full demo dry run on the phone. Time it.                                                   | We know if we're at 4:30 or 6:00.                           |
+| **H20–H22**     | Cuts based on dry run. Likely: drop image-gen, drop PDF upload UI, drop email send.                                                                                     | Pitch slides (1 slide is fine). Backup screen recording.                                   | Shippable.                                                  |
+| **H22–H23**     | Final dry run. Check audio levels. Test wifi + hotspot fallback.                                                                                                        |                                                                                            | Ready.                                                      |
+| **H23–H24**     | Submit. Buffer for unforeseen.                                                                                                                                          |                                                                                            |                                                             |
 
 **Parallelism note.** Track A and Track B are mostly independent through H7. Solo dev: alternate in 30-minute pomodoros, not by hour. Avoid context-switching on the Gemini Live integration — it's the highest-risk piece, finish it in one sitting.
 
 ### MVP vs. polish
 
 **MVP (must ship):**
+
 - Gemini Live audio-only call works.
 - `match_policy`, `update_claim_field`, `request_visual_inspection`, `finalize_claim` tool calls work.
 - Live claim card fills during call.
@@ -966,6 +984,7 @@ Today is Saturday 2026-04-25. Submission Sunday 2026-04-26 14:00. We're targetin
 - Sample policies pre-seeded.
 
 **Polish (drop in this order if behind):**
+
 1. Push notifications
 2. Resumable calls
 3. Bilingual switch (Deutsch demo)
@@ -991,7 +1010,7 @@ Re-stated and tied to specific files/commits to delete in a hurry:
 6. **Tavily live** — keep the `FALLBACK_PRICES` table. Hardcode "MacBook Pro 14 → 2399 €" so the demo always works. (The pitch script can still claim Tavily is wired; the audience won't know.)
 7. **Image-gen confirmation art** — drop `geminiImage.generateClaimCard`. Use a static SVG icon.
 8. **Audit-log viewer** — drop the `/claim/[id]/audit` page. Show the `claimEvents` rows in the Convex dashboard as proof if any judge asks.
-9. **Email send (Resend)** — drop the action. The CTA button can be a no-op or just toast "Sent!" — the production design *is* the message; the wire isn't.
+9. **Email send (Resend)** — drop the action. The CTA button can be a no-op or just toast "Sent!" — the production design _is_ the message; the wire isn't.
 10. **Onboarding flow itself** — pre-seed the demo account so the first thing on screen is the dashboard, not onboarding. (Mention "we have an onboarding flow" in the pitch.)
 
 If we cut everything 5–10 we still have a 4-minute demo that hits all three judging criteria.
@@ -1035,7 +1054,7 @@ These are gaps the original idea didn't address. We patch the load-bearing ones;
 - **Email collection during voice intake.** IDEA.md doesn't say when the agent learns the user's email. Plan: agent uses the email already on the user record (Clerk-provided) as default, confirms in voice ("I have you at vlad@…, right?"), and `finalize_claim` accepts an override. The form-link in the production path goes to the confirmed address.
 - **Two-stage workflow (voice now, form later).** IDEA.md has invoice upload in the same session; saved feedback says split. Reconciled in §2 — demo is hybrid, production is split.
 - **Coverage caveats upfront.** Not in IDEA.md at all. Added based on Inca research (Nag's Dunkelverarbeitungsquote thesis). This is the indemnity-quality wow moment and a major pitch hook.
-- **Live claim card filling.** IDEA.md says "half-filled form after the call." Plan: filling happens *during* the call so the user sees the agent working. This is the strongest "feels human" cue.
+- **Live claim card filling.** IDEA.md says "half-filled form after the call." Plan: filling happens _during_ the call so the user sees the agent working. This is the strongest "feels human" cue.
 - **Audit log.** Not in IDEA.md. Added as `claimEvents` table — supports the EU AI Act / DORA pitch hook.
 
 ### Punted (named, not silently)
@@ -1055,7 +1074,7 @@ These are gaps the original idea didn't address. We patch the load-bearing ones;
 
 ## 17. Inca-Research Citations (where this plan made decisions because of the dossier)
 
-- **Coverage caveat upfront** → Nag's 2026-03-30 blog post: *"KI im Schaden: Warum die Dunkelverarbeitungsquote nicht die wichtigste Kennzahl ist."* This is the single biggest product opinion in the plan and it comes straight from the CEO's stated thesis. We are visibly designing for indemnity quality, not for processing speed.
+- **Coverage caveat upfront** → Nag's 2026-03-30 blog post: _"KI im Schaden: Warum die Dunkelverarbeitungsquote nicht die wichtigste Kennzahl ist."_ This is the single biggest product opinion in the plan and it comes straight from the CEO's stated thesis. We are visibly designing for indemnity quality, not for processing speed.
 - **Audit log (`claimEvents`)** → Inca's stated EU AI Act + DORA + ISO 27001 compliance posture. We mirror it on the claimant side.
 - **Agent-to-agent FNOL framing** → research's `what_would_excite_their_team`: "Build a Policyholder Agent that negotiates with MARS." We don't actually negotiate (that's v2), but we frame ourselves as the policyholder-side companion to MARS — agent-to-agent is the future-line in the pitch.
 - **No claimant-facing chatbot from Inca** → research's `unmet_needs`: "no customer-facing agent." This is the opening. Lean in.

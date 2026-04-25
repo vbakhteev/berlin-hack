@@ -11,19 +11,15 @@ import { useUser } from "@clerk/nextjs";
 const nanoid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
 const STATUS_COLORS: Record<string, string> = {
-  active: "bg-blue-500",
-  awaiting_documentation: "bg-yellow-500",
-  submitted: "bg-green-500",
-  estimating: "bg-purple-500",
-  ready_for_review: "bg-emerald-500",
+  draft: "bg-blue-500",
+  in_review: "bg-purple-500",
+  accepted: "bg-emerald-500",
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  active: "Active",
-  awaiting_documentation: "Awaiting docs",
-  submitted: "Submitted",
-  estimating: "Estimating",
-  ready_for_review: "Ready for review",
+  draft: "Draft",
+  in_review: "In review",
+  accepted: "Accepted",
 };
 
 export default function DashboardPage() {
@@ -92,7 +88,7 @@ export default function DashboardPage() {
                 key={claim._id}
                 className="cursor-pointer hover:bg-accent transition-colors"
                 onClick={() =>
-                  claim.status === "active"
+                  claim.stage !== "closed"
                     ? router.push(`/claim/${claim.sessionId}`)
                     : router.push(`/claim/${claim.sessionId}/confirm`)
                 }

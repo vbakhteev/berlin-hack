@@ -55,6 +55,9 @@ export function useToolBridge(sessionId: string) {
             sessionId,
             summary: args.summary as string,
             callerEmail: args.callerEmail as string | undefined,
+            requiredUploads: args.requiredUploads as
+              | Array<{ id: string; title: string; description: string; required: boolean }>
+              | undefined,
           });
 
         default:

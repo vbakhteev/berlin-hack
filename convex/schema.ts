@@ -42,11 +42,9 @@ export default defineSchema({
     sessionId: v.string(),
     matchedPolicyId: v.optional(v.id("policies")),
     status: v.union(
-      v.literal("active"),
-      v.literal("awaiting_documentation"),
-      v.literal("submitted"),
-      v.literal("estimating"),
-      v.literal("ready_for_review")
+      v.literal("draft"),
+      v.literal("in_review"),
+      v.literal("accepted")
     ),
     stage: v.union(
       v.literal("greeting"),
@@ -109,6 +107,20 @@ export default defineSchema({
           storageId: v.id("_storage"),
           durationSec: v.optional(v.number()),
           capturedAt: v.string(),
+        })
+      )
+    ),
+
+    requiredUploads: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          title: v.string(),
+          description: v.string(),
+          required: v.boolean(),
+          status: v.union(v.literal("pending"), v.literal("uploaded")),
+          storageId: v.optional(v.id("_storage")),
+          uploadedAt: v.optional(v.string()),
         })
       )
     ),

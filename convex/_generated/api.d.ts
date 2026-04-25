@@ -18,6 +18,7 @@ import type * as http from "../http.js";
 import type * as policies from "../policies.js";
 import type * as tavily from "../tavily.js";
 import type * as tools from "../tools.js";
+import type * as uploads from "../uploads.js";
 import type * as users from "../users.js";
 
 /**
@@ -34,6 +35,7 @@ declare const fullApi: ApiFromModules<{
   policies: typeof policies;
   tavily: typeof tavily;
   tools: typeof tools;
+  uploads: typeof uploads;
   users: typeof users;
 }>;
 export declare const api: FilterApi<

@@ -50,7 +50,7 @@ export const create = mutation({
     return ctx.db.insert("claims", {
       userId: user._id,
       sessionId,
-      status: "active",
+      status: "draft",
       stage: "greeting",
       visualInspectionRequested: false,
       createdAt: new Date().toISOString(),
@@ -106,5 +106,13 @@ export const events = query({
   handler: async (ctx, { claimId }) => {
     const claim = await ctx.db.get(claimId);
     return claim?.events ?? [];
+  },
+});
+
+export const submit = mutation({
+  args: { claimId: v.id("claims") },
+  handler: async (ctx, { claimId }) => {
+    await ctx.db.patch(claimId, { status: "in_review" });
+    return { ok: true };
   },
 });

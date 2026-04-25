@@ -202,8 +202,18 @@ export const finalizeClaim = mutation({
     summary: v.string(),
     callerEmail: v.optional(v.string()),
     transcriptText: v.optional(v.string()),
+    requiredUploads: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          title: v.string(),
+          description: v.string(),
+          required: v.boolean(),
+        })
+      )
+    ),
   },
-  handler: async (ctx, { sessionId, summary, callerEmail, transcriptText }) => {
+  handler: async (ctx, { sessionId, summary, callerEmail, transcriptText, requiredUploads }) => {
     await getOrCreateUser(ctx);
     const claim = await ctx.db
       .query("claims")
@@ -211,11 +221,25 @@ export const finalizeClaim = mutation({
       .unique();
     if (!claim) throw new Error("Claim not found");
 
+    const uploads =
+      requiredUploads && requiredUploads.length > 0
+        ? requiredUploads.slice(0, 4).map((u) => ({ ...u, status: "pending" as const }))
+        : [
+            {
+              id: "invoice",
+              title: "Invoice or receipt",
+              description: "Proof of purchase for the affected item.",
+              required: true,
+              status: "pending" as const,
+            },
+          ];
+
     const updates: any = {
-      status: "estimating",
+      status: "draft",
       stage: "closed",
       finalizedAt: new Date().toISOString(),
       damageSummary: claim.damageSummary ?? summary,
+      requiredUploads: uploads,
     };
     if (callerEmail) updates.callerEmail = callerEmail;
     if (transcriptText) updates.transcriptText = transcriptText;

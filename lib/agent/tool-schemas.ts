@@ -79,7 +79,10 @@ export const toolSchemas = [
     name: "finalize_claim",
     description:
       "Voice-confirmation close. Call this after the caller confirms the summary you read back. " +
-      "This triggers the post-call flow: Tavily price research, confirmation screen, email handoff.",
+      "This triggers the post-call flow: Tavily price research, confirmation screen, email handoff. " +
+      "The optional requiredUploads array tells the confirmation screen which documents/photos to ask " +
+      "the caller to upload for this specific incident type. If omitted, the system falls back to a " +
+      "default invoice request.",
     parameters: {
       type: "object",
       properties: {
@@ -90,6 +93,34 @@ export const toolSchemas = [
         callerEmail: {
           type: "string",
           description: "Email address to send the form link to",
+        },
+        requiredUploads: {
+          type: "array",
+          description:
+            "Up to 4 documents/photos the caller needs to upload to process this specific claim. " +
+            "Tailor to the incident type (e.g. police report for car accidents, invoice for electronics).",
+          items: {
+            type: "object",
+            properties: {
+              id: {
+                type: "string",
+                description: "snake_case identifier, e.g. police_report, damage_photo",
+              },
+              title: {
+                type: "string",
+                description: "3-6 word label shown to the caller, e.g. 'Police report'",
+              },
+              description: {
+                type: "string",
+                description: "One-sentence explanation of what to upload",
+              },
+              required: {
+                type: "boolean",
+                description: "true only if the claim cannot be processed without it",
+              },
+            },
+            required: ["id", "title", "description", "required"],
+          },
         },
       },
       required: ["summary", "callerEmail"],
