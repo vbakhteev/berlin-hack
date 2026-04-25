@@ -29,6 +29,8 @@ export function CallView({ sessionId }: { sessionId: string }) {
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [showCameraOverlay, setShowCameraOverlay] = useState(false);
+  // R3 belt-and-suspenders: show inspection button immediately on tool call, before Convex round-trip
+  const [optimisticInspectionRequested, setOptimisticInspectionRequested] = useState(false);
 
   // Request location permission before the call starts
   useEffect(() => {
@@ -59,9 +61,10 @@ export function CallView({ sessionId }: { sessionId: string }) {
 
   const onToolCall = useCallback(
     async (call: { id: string; name: string; args: Record<string, unknown> }) => {
-      // Store inspection hint locally for overlay
-      if (call.name === "request_visual_inspection" && call.args.hint) {
-        setInspectionHint(call.args.hint as string);
+      // Store inspection hint + show button optimistically BEFORE Convex round-trip (R3 mitigation)
+      if (call.name === "request_visual_inspection") {
+        setOptimisticInspectionRequested(true);
+        if (call.args.hint) setInspectionHint(call.args.hint as string);
       }
       const result = await handleToolCall(call);
 
@@ -119,7 +122,7 @@ export function CallView({ sessionId }: { sessionId: string }) {
     }
   };
 
-  const inspectionRequested = claim?.visualInspectionRequested && !showCameraOverlay;
+  const inspectionRequested = (claim?.visualInspectionRequested || optimisticInspectionRequested) && !showCameraOverlay;
 
   const statusText = tokenError
     ? "GEMINI_API_KEY not set — add it to .env.local"

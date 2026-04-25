@@ -20,6 +20,14 @@ export default function ClaimPage({ params }: PageProps) {
     );
   }
 
+  if (claim === null) {
+    return (
+      <main className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-sm text-muted-foreground">Claim not found.</p>
+      </main>
+    );
+  }
+
   if (claim.status === "in_review" || claim.status === "accepted") {
     return <ReviewView sessionId={sessionId} />;
   }

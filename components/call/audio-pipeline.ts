@@ -20,6 +20,8 @@ export class AudioPipeline {
     this.audioContext = new AudioContext({ sampleRate: 16000 });
     this.source = this.audioContext.createMediaStreamSource(this.mediaStream);
 
+    // ScriptProcessorNode intentionally used over AudioWorklet — AudioWorklet is unavailable
+    // on older iOS Safari versions (pre-17), which is the primary demo device risk (R1).
     // 4096 samples / 16000 Hz = 256ms chunks
     this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
     this.processor.onaudioprocess = (e) => {
