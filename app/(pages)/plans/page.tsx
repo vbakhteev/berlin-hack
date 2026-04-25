@@ -6,20 +6,16 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ChevronLeft } from "lucide-react";
-
-const TYPE_LABELS: Record<string, { label: string; emoji: string }> = {
-  electronics: { label: "Electronics", emoji: "💻" },
-  kfz_haftpflicht: { label: "Car (Liability)", emoji: "🚗" },
-  kfz_kasko: { label: "Car (Vollkasko)", emoji: "🚗" },
-  hausrat: { label: "Home contents", emoji: "🏠" },
-  privat_haftpflicht: { label: "Personal liability", emoji: "🛡️" },
-  travel: { label: "Travel", emoji: "✈️" },
-  pet: { label: "Pet", emoji: "🐾" },
-};
+import { POLICY_TEMPLATES, getPolicyTemplate } from "@/convex/policyTemplates";
 
 export default function PlansPage() {
-  const plans = useQuery(api.policies.byUser);
+  const currentUser = useQuery(api.users.currentUser);
   const router = useRouter();
+
+  const activePolicyTypes = currentUser?.activePolicyTypes ?? [];
+  const plans = activePolicyTypes
+    .map((id) => getPolicyTemplate(id))
+    .filter((t): t is NonNullable<typeof t> => t != null);
 
   return (
     <main className="min-h-screen bg-background p-4 pb-8">
@@ -37,7 +33,7 @@ export default function PlansPage() {
         </div>
 
         <div className="space-y-3">
-          {plans === undefined ? (
+          {currentUser === undefined ? (
             [1, 2].map((i) => (
               <div key={i} className="h-32 rounded-lg bg-muted animate-pulse" />
             ))
@@ -48,35 +44,35 @@ export default function PlansPage() {
               </CardContent>
             </Card>
           ) : (
-            plans.map((plan) => {
-              const meta = TYPE_LABELS[plan.type] ?? { label: plan.type, emoji: "📄" };
-              return (
-                <Card key={plan._id}>
-                  <CardContent className="py-4 px-4 space-y-2">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{meta.emoji}</span>
-                      <div>
-                        <p className="font-semibold text-sm">{meta.label}</p>
-                        <p className="text-xs text-muted-foreground">{plan.insurer} · {plan.policyNumber}</p>
-                      </div>
+            plans.map((plan) => (
+              <Card key={plan.id}>
+                <CardContent className="py-4 px-4 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{plan.emoji}</span>
+                    <div>
+                      <p className="font-semibold text-sm">{plan.title}</p>
+                      <p className="text-xs text-muted-foreground">{plan.insurer} · {plan.policyNumber}</p>
                     </div>
-                    <p className="text-xs text-muted-foreground">{plan.coverageSummary}</p>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                      <span><span className="text-muted-foreground">Deductible </span>€{plan.deductibleEur}</span>
-                      {plan.coverageLimitEur && (
-                        <span><span className="text-muted-foreground">Limit </span>€{plan.coverageLimitEur.toLocaleString()}</span>
-                      )}
-                    </div>
-                    {plan.exclusions.length > 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        <span className="font-medium">Exclusions: </span>
-                        {plan.exclusions.join(", ")}
-                      </p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{plan.coverageSummary}</p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                    <span><span className="text-muted-foreground">Deductible </span>€{plan.deductibleEur}</span>
+                    {plan.coverageLimitEur && (
+                      <span><span className="text-muted-foreground">Limit </span>€{plan.coverageLimitEur.toLocaleString()}</span>
                     )}
-                  </CardContent>
-                </Card>
-              );
-            })
+                    {plan.depreciationRule && (
+                      <span className="text-muted-foreground">{plan.depreciationRule}</span>
+                    )}
+                  </div>
+                  {plan.exclusions.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      <span className="font-medium">Exclusions: </span>
+                      {plan.exclusions.join(", ")}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            ))
           )}
         </div>
       </div>

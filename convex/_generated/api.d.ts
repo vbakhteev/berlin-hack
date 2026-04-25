@@ -16,6 +16,7 @@ import type {
 import type * as claims from "../claims.js";
 import type * as http from "../http.js";
 import type * as policies from "../policies.js";
+import type * as policyTemplates from "../policyTemplates.js";
 import type * as tavily from "../tavily.js";
 import type * as tools from "../tools.js";
 import type * as uploads from "../uploads.js";
@@ -33,6 +34,7 @@ declare const fullApi: ApiFromModules<{
   claims: typeof claims;
   http: typeof http;
   policies: typeof policies;
+  policyTemplates: typeof policyTemplates;
   tavily: typeof tavily;
   tools: typeof tools;
   uploads: typeof uploads;

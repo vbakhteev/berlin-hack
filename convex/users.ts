@@ -94,6 +94,20 @@ export const completeOnboarding = mutation({
   },
 });
 
+export const updatePolicyTypes = mutation({
+  args: { policyTypes: v.array(v.string()) },
+  handler: async (ctx, { policyTypes }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.subject))
+      .unique();
+    if (!user) throw new Error("User not found");
+    await ctx.db.patch(user._id, { activePolicyTypes: policyTypes });
+  },
+});
+
 export const currentUser = query({
   args: {},
   handler: async (ctx) => {

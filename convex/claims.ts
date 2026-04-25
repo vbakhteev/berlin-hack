@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { getPolicyTemplate } from "./policyTemplates";
 
 export const bySession = query({
   args: { sessionId: v.string() },
@@ -9,9 +10,7 @@ export const bySession = query({
       .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
       .unique();
     if (!claim) return null;
-    const policy = claim.matchedPolicyId
-      ? await ctx.db.get(claim.matchedPolicyId)
-      : null;
+    const policy = claim.matchedPolicyType ? getPolicyTemplate(claim.matchedPolicyType) ?? null : null;
     return { ...claim, policy };
   },
 });
@@ -82,16 +81,15 @@ export const computePayoutRange = mutation({
     const claim = await ctx.db.get(claimId);
     if (!claim) return;
 
-    const policy = claim.matchedPolicyId ? await ctx.db.get(claim.matchedPolicyId) : null;
+    const template = claim.matchedPolicyType ? getPolicyTemplate(claim.matchedPolicyType) : null;
     const retail = claim.retailPriceEur ?? claim.estimatedDamageEur ?? 0;
-    const deductible = policy?.deductibleEur ?? 0;
+    const deductible = template?.deductibleEur ?? 0;
 
-    // Parse depreciation
     let depPct = 0;
-    if (policy?.depreciationRule) {
-      const match = policy.depreciationRule.match(/(\d+)%\s*per year/i);
+    if (template?.depreciationRule) {
+      const match = template.depreciationRule.match(/(\d+)%\s*per year/i);
       if (match) {
-        // Assume 2-year old item for demo
+        // Assume 2-year-old item for demo
         depPct = Math.min(parseInt(match[1]) * 2 / 100, 0.6);
       }
     }
@@ -119,6 +117,22 @@ export const submit = mutation({
   handler: async (ctx, { claimId }) => {
     await ctx.db.patch(claimId, { status: "in_review" });
     return { ok: true };
+  },
+});
+
+export const saveGpsLocation = mutation({
+  args: {
+    claimId: v.id("claims"),
+    latitude: v.number(),
+    longitude: v.number(),
+    accuracyMeters: v.number(),
+  },
+  handler: async (ctx, { claimId, latitude, longitude, accuracyMeters }) => {
+    await ctx.db.patch(claimId, {
+      gpsLatitude: latitude,
+      gpsLongitude: longitude,
+      gpsAccuracyMeters: accuracyMeters,
+    });
   },
 });
 

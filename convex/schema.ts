@@ -9,38 +9,13 @@ export default defineSchema({
     tokenIdentifier: v.string(),
     onboardingComplete: v.optional(v.boolean()),
     preferredLanguage: v.optional(v.union(v.literal("en"), v.literal("de"))),
+    activePolicyTypes: v.optional(v.array(v.string())),
   }).index("by_token", ["tokenIdentifier"]),
-
-  policies: defineTable({
-    userId: v.id("users"),
-    type: v.union(
-      v.literal("electronics"),
-      v.literal("kfz_haftpflicht"),
-      v.literal("kfz_kasko"),
-      v.literal("hausrat"),
-      v.literal("privat_haftpflicht"),
-      v.literal("travel"),
-      v.literal("pet")
-    ),
-    insurer: v.string(),
-    policyNumber: v.string(),
-    coverageSummary: v.string(),
-    deductibleEur: v.number(),
-    depreciationRule: v.optional(v.string()),
-    requiresVisualInspection: v.boolean(),
-    coverageLimitEur: v.optional(v.number()),
-    exclusions: v.array(v.string()),
-    sourcePdfStorageId: v.optional(v.id("_storage")),
-    extractedAt: v.string(),
-    extractedBy: v.union(v.literal("seeded"), v.literal("gemini-vision")),
-  })
-    .index("by_user", ["userId"])
-    .index("by_user_type", ["userId", "type"]),
 
   claims: defineTable({
     userId: v.id("users"),
     sessionId: v.string(),
-    matchedPolicyId: v.optional(v.id("policies")),
+    matchedPolicyType: v.optional(v.string()),
     status: v.union(
       v.literal("draft"),
       v.literal("in_review"),
@@ -62,6 +37,9 @@ export default defineSchema({
     incidentType: v.optional(v.string()),
     incidentDate: v.optional(v.string()),
     incidentLocation: v.optional(v.string()),
+    gpsLatitude: v.optional(v.number()),
+    gpsLongitude: v.optional(v.number()),
+    gpsAccuracyMeters: v.optional(v.number()),
     productCategory: v.optional(v.string()),
     productBrandModel: v.optional(v.string()),
     damageSummary: v.optional(v.string()),

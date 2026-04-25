@@ -1,32 +1,31 @@
-export type PolicyContext = {
-  type: string;
-  insurer: string;
-  policyNumber: string;
-  coverageSummary: string;
-  deductibleEur: number;
-  depreciationRule?: string | null;
-  requiresVisualInspection: boolean;
-  exclusions: string[];
-};
+import { getPolicyTemplate } from "@/convex/policyTemplates";
 
 export type UserContext = {
   name?: string;
   email: string;
+  activePolicyTypes: string[];
 };
 
-export function buildSystemPrompt(user: UserContext, policies: PolicyContext[]): string {
-  const policiesBlock = policies.length === 0
-    ? "  No policies on file. Ask the caller to describe what happened and we will identify coverage."
-    : policies
-        .map(
-          (p) => `  - ${p.type} policy (${p.insurer}, policy ${p.policyNumber})
-    Coverage: ${p.coverageSummary}
-    Deductible: ${p.deductibleEur} EUR
-    Depreciation: ${p.depreciationRule ?? "none"}
-    Requires visual inspection: ${p.requiresVisualInspection}
-    Exclusions: ${p.exclusions.join(", ")}`
-        )
-        .join("\n");
+export function buildSystemPrompt(user: UserContext): string {
+  const templates = user.activePolicyTypes
+    .map((id) => getPolicyTemplate(id))
+    .filter((t): t is NonNullable<typeof t> => t != null);
+
+  const policiesBlock =
+    templates.length === 0
+      ? "  No policies on file. Ask the caller to describe what happened and we will identify coverage."
+      : templates
+          .map(
+            (t) =>
+              `  - ${t.title} (${t.insurer}, policy ${t.policyNumber})
+    Coverage: ${t.coverageSummary}
+    Deductible: ${t.deductibleEur} EUR
+    Depreciation: ${t.depreciationRule ?? "none"}
+    Requires visual inspection: ${t.requiresVisualInspection}
+    Exclusions: ${t.exclusions.join(", ")}
+    Policy context: ${t.voiceAgentContext}`
+          )
+          .join("\n");
 
   return `You are Lina, a claims companion working alongside Inca's claims platform.
 
@@ -57,7 +56,8 @@ When you call finalize_claim, include a requiredUploads array tailored to the in
 - Electronics theft: invoice (required), photo of purchase confirmation (optional)
 - Electronics damage: invoice (required), photo of damaged device (required)
 - Car accident: police report (required), photos of damage (required), other driver's insurance info (optional)
-- Lost luggage: boarding pass (required), baggage claim ticket (required)
+- Bike theft: police report (required), proof of purchase (required)
+- Pet vet visit: vet invoice (required), vet diagnosis report (required)
 Mark items as required:true only when the claim genuinely cannot be processed without them. Cap at 4 items.
 
 FNOL PROCEDURE:
@@ -72,7 +72,7 @@ FNOL PROCEDURE:
    then call request_visual_inspection. Tell them a button just appeared on their screen and ask them to tap it when ready.
 7. During visual inspection, narrate what you see briefly. Call update_claim_field with damageSummary.
 8. Read back a 2-sentence summary. Ask "does that sound right?"
-9. On confirmation, call finalize_claim with the email on file. Include requiredUploads tailored to the incident type per the section above.
-10. Tell them: "I'm sending the rest to your email. Open it when you have your invoice — no rush. You'll see your estimated payout there."
+9. On confirmation, call finalize_claim. Include requiredUploads tailored to the incident type per the section above.
+10. Tell them: "You can upload any supporting documents whenever you're ready — no rush. Once everything's in, just hit submit and we'll take it from there."
 11. End the call warmly.`;
 }

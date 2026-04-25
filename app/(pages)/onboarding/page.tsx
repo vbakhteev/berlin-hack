@@ -6,40 +6,20 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-
-const POLICY_TYPES = [
-  {
-    type: "electronics" as const,
-    label: "Electronics",
-    emoji: "💻",
-    desc: "Laptops, phones, tablets",
-  },
-  {
-    type: "kfz_kasko" as const,
-    label: "Car (Vollkasko)",
-    emoji: "🚗",
-    desc: "Collision, theft, vandalism",
-  },
-  {
-    type: "hausrat" as const,
-    label: "Home contents",
-    emoji: "🏠",
-    desc: "Hausrat & accidental damage",
-  },
-];
+import { POLICY_TEMPLATES } from "@/convex/policyTemplates";
 
 export default function OnboardingPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
-  const seedSample = useMutation(api.policies.seedSample);
+  const updatePolicyTypes = useMutation(api.users.updatePolicyTypes);
   const completeOnboarding = useMutation(api.users.completeOnboarding);
   const router = useRouter();
 
-  const toggle = (type: string) => {
+  const toggle = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(type)) next.delete(type);
-      else next.add(type);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
@@ -47,9 +27,7 @@ export default function OnboardingPage() {
   const handleDone = async () => {
     setLoading(true);
     try {
-      for (const type of selected) {
-        await seedSample({ type: type as "electronics" | "kfz_kasko" | "hausrat" });
-      }
+      await updatePolicyTypes({ policyTypes: [...selected] });
       await completeOnboarding();
       router.push("/dashboard");
     } finally {
@@ -68,21 +46,21 @@ export default function OnboardingPage() {
         </div>
 
         <div className="space-y-3 flex-1">
-          {POLICY_TYPES.map(({ type, label, emoji, desc }) => {
-            const isSelected = selected.has(type);
+          {POLICY_TEMPLATES.map(({ id, emoji, title, description }) => {
+            const isSelected = selected.has(id);
             return (
               <Card
-                key={type}
+                key={id}
                 className={`cursor-pointer transition-all border-2 ${
                   isSelected ? "border-primary bg-primary/5" : "border-border"
                 }`}
-                onClick={() => toggle(type)}
+                onClick={() => toggle(id)}
               >
                 <CardContent className="flex items-center gap-4 py-4 px-4">
                   <span className="text-3xl">{emoji}</span>
                   <div className="flex-1">
-                    <p className="font-semibold">{label}</p>
-                    <p className="text-xs text-muted-foreground">{desc}</p>
+                    <p className="font-semibold">{title}</p>
+                    <p className="text-xs text-muted-foreground">{description}</p>
                   </div>
                   <div
                     className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
@@ -116,7 +94,7 @@ export default function OnboardingPage() {
             {loading ? "Setting up…" : `Add ${selected.size} plan${selected.size === 1 ? "" : "s"}`}
           </Button>
           <p className="text-xs text-center text-muted-foreground">
-            Sample plans from HUK24, Allianz, and DEVK are pre-loaded for demo.
+            Sample plans from HUK24, Allianz, DEVK, and Petolo are pre-loaded for demo.
           </p>
         </div>
       </div>

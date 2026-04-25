@@ -36,7 +36,7 @@ export function ClaimCardLive({ claim }: ClaimCardProps) {
     <div className="rounded-xl border bg-card p-4 space-y-0">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-semibold">Claim summary</h3>
-        {claim.matchedPolicyId && (
+        {claim.matchedPolicyType && (
           <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
             Plan matched
           </span>

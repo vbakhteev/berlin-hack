@@ -1,5 +1,6 @@
 import { mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { POLICY_TEMPLATES, POLICY_TEMPLATES_BY_ID, getPolicyTemplate, getPolicyTemplateByNumber } from "./policyTemplates";
 
 async function getOrCreateUser(ctx: any) {
   const identity = await ctx.auth.getUserIdentity();
@@ -14,12 +15,7 @@ async function getOrCreateUser(ctx: any) {
 
 async function logEvent(ctx: any, claim: any, type: string, toolName: string | undefined, payload: any) {
   const events = claim.events ?? [];
-  events.push({
-    type,
-    toolName,
-    payload,
-    timestamp: Date.now(),
-  });
+  events.push({ type, toolName, payload, timestamp: Date.now() });
   await ctx.db.patch(claim._id, { events });
 }
 
@@ -37,54 +33,72 @@ export const matchPolicy = mutation({
       .unique();
     if (!claim) throw new Error("Claim not found");
 
-    const policies = await ctx.db
-      .query("policies")
-      .withIndex("by_user", (q: any) => q.eq("userId", user._id))
-      .collect();
+    const activePolicyTypes: string[] = user.activePolicyTypes ?? [];
+    const availableTemplates = POLICY_TEMPLATES.filter((t) => activePolicyTypes.includes(t.id));
 
-    if (policies.length === 0) {
+    if (availableTemplates.length === 0) {
       return { matched: false, reason: "No policies on file" };
     }
 
-    // Simple keyword matching for demo
     const hypothesis = lossHypothesis.toLowerCase();
     const category = (productCategory ?? "").toLowerCase();
 
-    let matched = policies[0];
-    for (const p of policies) {
-      if (p.type === "electronics" && (category.includes("laptop") || category.includes("phone") || category.includes("tablet") || category.includes("macbook") || hypothesis.includes("electronic") || hypothesis.includes("laptop") || hypothesis.includes("phone"))) {
-        matched = p;
+    let matched = availableTemplates[0];
+    for (const t of availableTemplates) {
+      if (
+        t.id === "electronics" &&
+        (category.includes("laptop") || category.includes("phone") || category.includes("tablet") ||
+          category.includes("macbook") || hypothesis.includes("electronic") ||
+          hypothesis.includes("laptop") || hypothesis.includes("phone") || hypothesis.includes("screen"))
+      ) {
+        matched = t;
         break;
       }
-      if ((p.type === "kfz_kasko" || p.type === "kfz_haftpflicht") && (hypothesis.includes("car") || hypothesis.includes("vehicle") || hypothesis.includes("auto") || hypothesis.includes("crash"))) {
-        matched = p;
+      if (
+        t.id === "auto" &&
+        (hypothesis.includes("car") || hypothesis.includes("vehicle") || hypothesis.includes("auto") ||
+          hypothesis.includes("crash") || hypothesis.includes("accident") || hypothesis.includes("truck"))
+      ) {
+        matched = t;
         break;
       }
-      if (p.type === "hausrat" && (hypothesis.includes("home") || hypothesis.includes("house") || hypothesis.includes("apartment") || hypothesis.includes("furniture"))) {
-        matched = p;
+      if (
+        t.id === "bike" &&
+        (hypothesis.includes("bike") || hypothesis.includes("bicycle") || hypothesis.includes("cycling") ||
+          hypothesis.includes("cycle"))
+      ) {
+        matched = t;
+        break;
+      }
+      if (
+        t.id === "pet" &&
+        (hypothesis.includes("pet") || hypothesis.includes("dog") || hypothesis.includes("cat") ||
+          hypothesis.includes("vet") || hypothesis.includes("animal"))
+      ) {
+        matched = t;
         break;
       }
     }
 
     await ctx.db.patch(claim._id, {
-      matchedPolicyId: matched._id,
+      matchedPolicyType: matched.id,
       stage: "identifying_policy",
     });
 
     await logEvent(ctx, claim, "tool_call", "match_policy", {
       lossHypothesis,
       productCategory,
-      matchedPolicyId: matched._id,
+      matchedPolicyType: matched.id,
     });
 
     return {
       matched: true,
-      policyId: matched._id,
-      type: matched.type,
+      policyType: matched.id,
+      title: matched.title,
       insurer: matched.insurer,
       policyNumber: matched.policyNumber,
       deductibleEur: matched.deductibleEur,
-      depreciationRule: matched.depreciationRule,
+      depreciationRule: matched.depreciationRule ?? null,
       requiresVisualInspection: matched.requiresVisualInspection,
       exclusions: matched.exclusions,
     };
@@ -94,9 +108,10 @@ export const matchPolicy = mutation({
 export const checkCoverage = mutation({
   args: {
     sessionId: v.string(),
-    policyId: v.id("policies"),
+    policyType: v.optional(v.string()),
+    policyId: v.optional(v.string()),
   },
-  handler: async (ctx, { sessionId, policyId }) => {
+  handler: async (ctx, { sessionId, policyType, policyId }) => {
     await getOrCreateUser(ctx);
     const claim = await ctx.db
       .query("claims")
@@ -104,19 +119,21 @@ export const checkCoverage = mutation({
       .unique();
     if (!claim) throw new Error("Claim not found");
 
-    const policy = await ctx.db.get(policyId);
-    if (!policy) throw new Error("Policy not found");
+    const template =
+      (policyType ? getPolicyTemplate(policyType) : undefined) ??
+      (policyId ? getPolicyTemplateByNumber(policyId) : undefined) ??
+      (claim.matchedPolicyType ? getPolicyTemplate(claim.matchedPolicyType) : undefined);
+    if (!template) throw new Error(`Unknown policy: policyType=${policyType}, policyId=${policyId}`);
 
     await ctx.db.patch(claim._id, { stage: "coverage_caveat" });
-
-    await logEvent(ctx, claim, "tool_call", "check_coverage", { policyId });
+    await logEvent(ctx, claim, "tool_call", "check_coverage", { policyType: template.id });
 
     return {
-      deductibleEur: policy.deductibleEur,
-      depreciationRule: policy.depreciationRule ?? null,
-      exclusions: policy.exclusions,
-      coverageLimitEur: policy.coverageLimitEur ?? null,
-      coverageSummary: policy.coverageSummary,
+      deductibleEur: template.deductibleEur,
+      depreciationRule: template.depreciationRule ?? null,
+      exclusions: template.exclusions,
+      coverageLimitEur: template.coverageLimitEur ?? null,
+      coverageSummary: template.coverageSummary,
     };
   },
 });
@@ -143,9 +160,9 @@ export const updateClaimField = mutation({
 
     const updates: Record<string, any> = {};
     const updatedFields: string[] = [];
-    for (const [k, v] of Object.entries(fields)) {
-      if (v !== undefined) {
-        updates[k] = v;
+    for (const [k, val] of Object.entries(fields)) {
+      if (val !== undefined) {
+        updates[k] = val;
         updatedFields.push(k);
       }
     }
