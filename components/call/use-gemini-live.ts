@@ -127,18 +127,10 @@ export function useGeminiLive({
 
         console.debug("[GeminiLive]", JSON.stringify(data).slice(0, 200));
 
-        // Setup handshake complete → play dial tone + crackle, then start mic
+        // Setup handshake complete → play dial tone, start mic, then trigger greeting
         if (data.setupComplete !== undefined) {
           updateState("connected");
           audioPlayerRef.current?.playDialToneAndCrackle();
-          // Trigger Lina's greeting immediately — Gemini Live waits for a turn signal.
-          // Audio will be queued but firstResponseNotBefore blocks playback until after ringing.
-          sendMessage({
-            clientContent: {
-              turns: [{ role: "user", parts: [{ text: "" }] }],
-              turnComplete: true,
-            },
-          });
           const pipe = new AudioPipeline();
           audioPipelineRef.current = pipe;
           try {
@@ -154,7 +146,17 @@ export function useGeminiLive({
           } catch (e) {
             console.error("[GeminiLive] mic start failed:", e);
             updateState("error");
+            return;
           }
+          // Trigger Lina's proactive greeting AFTER mic is ready.
+          // Empty string is ignored by Gemini — "." is the minimal valid turn signal.
+          // Audio will be queued and firstResponseNotBefore holds it until after ringing.
+          sendMessage({
+            clientContent: {
+              turns: [{ role: "user", parts: [{ text: "." }] }],
+              turnComplete: true,
+            },
+          });
           return;
         }
 
