@@ -29,6 +29,7 @@ export function CallView({ sessionId }: { sessionId: string }) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [callSeconds, setCallSeconds] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const ambientRef = useRef<{ ctx: AudioContext; source: AudioBufferSourceNode } | null>(null);
   const [gpsCoords, setGpsCoords] = useState<GeolocationCoordinates | null>(
     null
   );
@@ -66,6 +67,43 @@ export function CallView({ sessionId }: { sessionId: string }) {
         console.error("Gemini token error:", e);
         setTokenError(String(e));
       });
+  }, []);
+
+  const startAmbient = useCallback(() => {
+    const ctx = new AudioContext();
+    const rate = ctx.sampleRate;
+    const len = rate * 4;
+    const buf = ctx.createBuffer(1, len, rate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) {
+      const hum = Math.sin(2 * Math.PI * 60 * (i / rate)) * 0.007
+               + Math.sin(2 * Math.PI * 120 * (i / rate)) * 0.003;
+      data[i] = hum + (Math.random() * 2 - 1) * 0.005;
+    }
+    const fade = Math.min(400, len / 4);
+    for (let i = 0; i < fade; i++) {
+      data[i] *= i / fade;
+      data[len - 1 - i] *= i / fade;
+    }
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 180;
+    const gain = ctx.createGain();
+    gain.gain.value = 1.0;
+    const source = ctx.createBufferSource();
+    source.buffer = buf;
+    source.loop = true;
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    source.start();
+    ambientRef.current = { ctx, source };
+  }, []);
+
+  const stopAmbient = useCallback(() => {
+    try { ambientRef.current?.source.stop(); } catch {}
+    ambientRef.current?.ctx.close().catch(() => {});
+    ambientRef.current = null;
   }, []);
 
   const onToolCall = useCallback(
@@ -123,15 +161,20 @@ export function CallView({ sessionId }: { sessionId: string }) {
           setHasConnected(true);
           setCallSeconds(0);
           timerRef.current = setInterval(() => setCallSeconds((n) => n + 1), 1000);
+          startAmbient();
         }
         if (s === "ended" || s === "error") {
           if (timerRef.current) {
             clearInterval(timerRef.current);
             timerRef.current = null;
           }
+          stopAmbient();
         }
       },
     });
+
+  // Stop ambient on unmount (e.g. navigation away mid-call)
+  useEffect(() => () => { stopAmbient(); }, [stopAmbient]);
 
   // Auto-connect removed — iOS Safari requires getUserMedia to be triggered
   // by a direct user gesture. connect() is called from the "Start call" button.

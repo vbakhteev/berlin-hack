@@ -71,6 +71,7 @@ export class AudioPlayer {
   private isPlaying = false;
   private sampleRate: number;
   private responseStarted = false;
+  private ambientSource: AudioBufferSourceNode | null = null;
   public onPlaybackStart: (() => void) | null = null;
   public onPlaybackEnd: (() => void) | null = null;
 
@@ -217,7 +218,53 @@ export class AudioPlayer {
     }
   }
 
+  // Synthesized office ambient — AC hum (60Hz) + low filtered room noise, loops indefinitely
+  startOfficeAmbient(): void {
+    if (!this.audioContext) this.init();
+    const ctx = this.audioContext!;
+    const rate = ctx.sampleRate;
+    const len = rate * 4; // 4s loop
+    const buf = ctx.createBuffer(1, len, rate);
+    const data = buf.getChannelData(0);
+
+    for (let i = 0; i < len; i++) {
+      // 60Hz AC hum + weak 120Hz harmonic
+      const hum = Math.sin(2 * Math.PI * 60 * (i / rate)) * 0.007
+               + Math.sin(2 * Math.PI * 120 * (i / rate)) * 0.003;
+      const noise = (Math.random() * 2 - 1) * 0.005;
+      data[i] = hum + noise;
+    }
+    // Smooth loop boundaries to avoid click
+    const fade = Math.min(400, len / 4);
+    for (let i = 0; i < fade; i++) {
+      data[i] *= i / fade;
+      data[len - 1 - i] *= i / fade;
+    }
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 180;
+
+    const gain = ctx.createGain();
+    gain.gain.value = 1.0;
+
+    const source = ctx.createBufferSource();
+    source.buffer = buf;
+    source.loop = true;
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    source.start();
+    this.ambientSource = source;
+  }
+
+  stopOfficeAmbient(): void {
+    try { this.ambientSource?.stop(); } catch {}
+    this.ambientSource = null;
+  }
+
   stop(): void {
+    this.stopOfficeAmbient();
     this.queue = [];
     this.isPlaying = false;
     this.responseStarted = false;
