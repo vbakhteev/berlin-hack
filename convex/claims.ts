@@ -24,8 +24,12 @@ export const bySession = query({
       .query("claims")
       .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
       .unique();
-    if (!claim) return null;
-    const policy = claim.matchedPolicyType ? getPolicyTemplate(claim.matchedPolicyType) ?? null : null;
+    if (!claim) {
+      return null;
+    }
+    const policy = claim.matchedPolicyType
+      ? (getPolicyTemplate(claim.matchedPolicyType) ?? null)
+      : null;
     return { ...claim, policy };
   },
 });
@@ -97,7 +101,9 @@ export const computePayoutRange = mutation({
     const claim = await ctx.db.get(claimId);
     if (!claim) return;
 
-    const template = claim.matchedPolicyType ? getPolicyTemplate(claim.matchedPolicyType) : null;
+    const template = claim.matchedPolicyType
+      ? getPolicyTemplate(claim.matchedPolicyType)
+      : null;
     const retail = claim.retailPriceEur ?? claim.estimatedDamageEur ?? 0;
     const deductible = template?.deductibleEur ?? 0;
 
@@ -106,7 +112,7 @@ export const computePayoutRange = mutation({
       const match = template.depreciationRule.match(/(\d+)%\s*per year/i);
       if (match) {
         // Assume 2-year-old item for demo
-        depPct = Math.min(parseInt(match[1]) * 2 / 100, 0.6);
+        depPct = Math.min((parseInt(match[1]) * 2) / 100, 0.6);
       }
     }
 
@@ -172,7 +178,9 @@ export const endCall = mutation({
     await ctx.db.patch(claimId, { status: "draft", stage: "closed" });
     // Schedule Tavily only when finalizeClaim (tools.ts) hasn't already done so
     if (!claim.finalizedAt) {
-      await ctx.scheduler.runAfter(0, api.tavily.researchReplacementPrice, { claimId });
+      await ctx.scheduler.runAfter(0, api.tavily.researchReplacementPrice, {
+        claimId,
+      });
     }
   },
 });
@@ -222,7 +230,7 @@ export const byIdInternal = query({
 
     const user = await ctx.db.get(claim.userId);
     const policy = claim.matchedPolicyType
-      ? getPolicyTemplate(claim.matchedPolicyType) ?? null
+      ? (getPolicyTemplate(claim.matchedPolicyType) ?? null)
       : null;
 
     const mediaWithUrls = await Promise.all(
