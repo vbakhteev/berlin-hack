@@ -28,43 +28,28 @@ function ConvexVideo({
   videoRef,
   opacity,
   loop,
-  placeholder,
+  src,
 }: {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   opacity: number;
   loop?: boolean;
-  placeholder: string;
+  src?: string;
 }) {
   return (
-    <>
-      <video
-        ref={videoRef}
-        muted
-        playsInline
-        loop={loop}
-        style={{
-          position: "absolute", inset: 0,
-          width: "100%", height: "100%",
-          objectFit: "cover",
-          opacity,
-          transition: "opacity 0.6s ease",
-        }}
-      />
-      {/* Placeholder shown when no src */}
-      <div
-        style={{
-          position: "absolute", inset: 0,
-          display: "flex", alignItems: "flex-end", justifyContent: "center",
-          paddingBottom: "12px",
-          opacity: 0.3,
-          pointerEvents: "none",
-        }}
-      >
-        <span style={{ color: "white", fontSize: "0.65rem", fontFamily: "monospace" }}>
-          {placeholder}
-        </span>
-      </div>
-    </>
+    <video
+      ref={videoRef}
+      src={src}
+      muted
+      playsInline
+      loop={loop}
+      style={{
+        position: "absolute", inset: 0,
+        width: "100%", height: "100%",
+        objectFit: "cover",
+        opacity,
+        transition: "opacity 0.6s ease",
+      }}
+    />
   );
 }
 
@@ -292,8 +277,8 @@ export default function PitchPage() {
             background: "#1a2a1a",
             overflow: "hidden",
           }}>
-            <ConvexVideo videoRef={leftCallRef} opacity={callActive ? 1 : 0} loop placeholder="left-call.mp4" />
-            <ConvexVideo videoRef={leftSummaryRef} opacity={summaryActive ? 1 : 0} placeholder="left-summary.mp4" />
+            <ConvexVideo videoRef={leftCallRef} opacity={callActive ? 1 : 0} loop src="/videos/left-call.mp4" />
+            <ConvexVideo videoRef={leftSummaryRef} opacity={summaryActive ? 1 : 0} />
           </div>
         </div>
 
