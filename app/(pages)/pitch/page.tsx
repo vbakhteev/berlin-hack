@@ -30,7 +30,7 @@ function ConvexVideo({
   loop,
   placeholder,
 }: {
-  videoRef: React.RefObject<HTMLVideoElement>;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
   opacity: number;
   loop?: boolean;
   placeholder: string;
