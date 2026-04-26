@@ -5,7 +5,7 @@ import { Bell, Phone } from "lucide-react";
 
 export function AxaHeader({ onPhoneTap }: { onPhoneTap: () => void }) {
   return (
-    <header className="sticky top-[59px] z-30 bg-white border-b border-[#E0E0E0]">
+    <header className="sticky top-0 z-30 bg-white border-b border-[#E0E0E0]">
       <div className="flex items-center justify-between px-5 h-12">
         <Image
           src="/axa-logo.png"
