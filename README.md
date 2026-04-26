@@ -1,319 +1,317 @@
-# Next.js 15 Starter Kit
+# Lina — Voice-First Insurance Claims Agent
 
-A modern, feature-rich starter template for building production-ready applications with Next.js 15, Tailwind CSS, and TypeScript.
+**Big Berlin Hack 2026 · Inca Insurance Track**
 
-![Next Starter Kit](https://dwdwn8b5ye.ufs.sh/f/MD2AM9SEY8GucGJl7b5qyE7FjNDKYduLOG2QHWh3f5RgSi0c)
+Lina is an AI-powered FNOL (First Notice of Loss) agent that lets policyholders file insurance claims in under 90 seconds via a natural voice and video conversation — no paperwork, no hold music, no forms to fill at the scene.
 
-## Features
+---
 
-### Core Technologies
-- ⚡ **Next.js 15** - The latest version with App Router
-- 🎨 **Tailwind CSS** - Utility-first CSS framework
-- 📘 **TypeScript** - Type-safe code
-- 🔒 **Authentication** - Clerk integration with persistent authorization toggle
-- 🎭 **Shadcn/ui** - Beautiful and accessible components
-- 💾 **Convex DB** - Real-time database with built-in file storage and serverless functions
-- 💳 **Polar.sh** - Open-source solution for managing subscriptions and payments
+## The Problem
 
-### Performance Optimizations
-- 🚀 **Route Prefetching** - Instant page transitions for dashboard, playground, and auth pages
-- 🖼️ **Optimized Images** - Eager loading for critical images
-- 🌓 **Dark/Light Mode** - System-aware theme switching with custom gradients
-- 📱 **Responsive Design** - Mobile-first approach
-- 🔄 **Real-time Updates** - Powered by Convex DB's real-time capabilities
+Filing an insurance claim today means:
 
-### Developer Experience
-- 🧩 **Component Library** - Pre-built, customizable components
-- 🎮 **AI Playground** - Built-in AI chat interface
-- 📊 **Dashboard Template** - Ready-to-use admin interface with subscription management
-- 🔍 **SEO Optimized** - Meta tags and sitemap generation
+- Calling a call center and waiting on hold
+- Navigating IVR menus to reach the right department
+- Dictating information to an agent who types it into a legacy system
+- Receiving zero transparency on deductibles or payout estimates until weeks later
+- Returning home to fill out a PDF form from memory
 
-## Convex DB Integration
+This friction reduces claim quality (inaccurate details) and policyholder satisfaction.
 
-To set up your Convex database, visit: [https://convex.link/rasmicstarter](https://convex.link/rasmicstarter)
+## The Solution
 
-## Quick Start
+Lina handles the entire FNOL intake in a single mobile call:
 
-> For detailed setup instructions, please refer to the complete setup guide and video tutorial sections below.
+1. **Voice call** — Lina identifies the relevant policy automatically and gathers incident facts
+2. **Live transparency** — deductible and depreciation rules are read aloud mid-call, before the policyholder hangs up
+3. **Visual inspection** — Lina requests camera access to analyze damage on-screen
+4. **Instant estimate** — automated price research provides a payout range before the call ends
+5. **Async documentation** — a follow-up email link lets the policyholder upload receipts from home
 
-1. Clone the repository:
-```bash
-git clone https://github.com/michaelshimeles/nextjs-starter-kit.git
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Mobile Browser (Next.js)                                       │
+│                                                                 │
+│  ┌─────────────────┐    WebSocket (audio + video frames)        │
+│  │  IosCallScreen  │◄──────────────────────────────────────────►│
+│  │  (React)        │                                            │
+│  └────────┬────────┘         Google Gemini Live API             │
+│           │ Convex SDK                                          │
+│           │ (real-time subscriptions)                           │
+│  ┌────────▼────────────────────────┐                            │
+│  │  Convex Backend                 │                            │
+│  │  ┌──────────┐  ┌─────────────┐  │   REST API                 │
+│  │  │ claims   │  │ tools       │◄─┼──────────── Tavily         │
+│  │  │ policies │  │ (mutations) │  │   (price research)         │
+│  │  │ users    │  └─────────────┘  │                            │
+│  │  └──────────┘                   │                            │
+│  └─────────────────────────────────┘                            │
+│                                                                 │
+│  ┌──────────────────────┐                                       │
+│  │  Clerk Auth          │  JWT verification                     │
+│  └──────────────────────┘                                       │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-2. Install dependencies:
-```bash
-bun install
+**Data flow during a call:**
+
+1. User taps "Open a claim" → `claims.create()` Convex mutation
+2. Browser opens WebSocket to Gemini Live API with system prompt + tool schemas
+3. User speaks → Gemini processes audio, decides to call tools
+4. Tool calls route through `useToolBridge` → Convex mutations (real-time DB updates)
+5. Convex subscriptions push updates back to the call screen UI instantly
+6. On `finalize_claim` tool call → Convex schedules a Tavily price-research action async
+7. Payout range appears on confirmation screen within seconds
+
+---
+
+## Tech Stack
+
+| Layer           | Technology               | Purpose                                  |
+| --------------- | ------------------------ | ---------------------------------------- |
+| Frontend        | Next.js 15 (App Router)  | UI, routing, API routes                  |
+| Language        | TypeScript               | Type safety end-to-end                   |
+| Styling         | Tailwind CSS + Shadcn/ui | Mobile-first UI components               |
+| Auth            | Clerk                    | User authentication + JWT                |
+| Database        | Convex                   | Real-time DB + serverless functions      |
+| AI Voice        | Google Gemini Live API   | Bidirectional audio/video + tool calling |
+| Web Search      | Tavily API               | Product price research                   |
+| Validation      | Zod                      | Schema validation                        |
+| Forms           | React Hook Form          | Post-call documentation form             |
+| Package manager | Bun                      | Faster installs + dev server             |
+
+---
+
+## APIs & Frameworks
+
+### Google Gemini Live API
+
+- **Model:** `gemini-2.0-flash-live-preview-04-09`
+- **Transport:** WebSocket (`wss://generativelanguage.googleapis.com/ws/...`)
+- **Capabilities used:** bidirectional audio streaming, real-time video frame analysis, function/tool calling, native TTS (voice: "Kore")
+- **Integration:** `components/call/use-gemini-live.ts` — manages WebSocket lifecycle, audio/video pipelines, and tool call dispatch
+- **Ephemeral tokens:** server-side token endpoint at `/api/gemini/ephemeral-token` issues short-lived keys so the API key is never exposed to the browser
+
+### Convex
+
+- **Version:** 1.18.2
+- **Used for:** real-time database (claims, users, policies), serverless mutations called by Gemini tool responses, scheduled actions (Tavily price research), file storage (video frames, uploaded invoices), Clerk webhook handler
+- **Schema:** `convex/schema.ts` — tables: `users`, `claims`, `claimMedia`, `claimEvents`, `policyTemplates`
+
+### Clerk
+
+- **Used for:** user authentication, JWT verification in Convex, webhook events to sync users on sign-up
+- **Integration:** `@clerk/nextjs` SDK + `convex/auth.config.ts` for server-side JWT validation
+
+### Tavily
+
+- **Endpoint:** `POST https://api.tavily.com/search`
+- **Used for:** searching current retail prices for damaged products (e.g., "MacBook Pro 14 M3 price Germany 2024")
+- **Integration:** `convex/tavily.ts` — called as an async Convex action after claim finalization; includes hardcoded fallback prices if search fails
+
+---
+
+## Gemini Tool Calling System
+
+The agent has five tools exposed via JSON schema (`lib/agent/tool-schemas.ts`):
+
+| Tool                        | Purpose                                                    |
+| --------------------------- | ---------------------------------------------------------- |
+| `match_policy`              | Identify which policy type covers the reported incident    |
+| `check_coverage`            | Retrieve and read aloud deductible + depreciation rules    |
+| `update_claim_field`        | Patch claim record with facts gathered during conversation |
+| `request_visual_inspection` | Trigger camera overlay on mobile device                    |
+| `finalize_claim`            | Confirm and close the intake; trigger price research       |
+
+Tool responses are routed from the Gemini WebSocket through `components/call/use-tool-bridge.ts`, which calls the corresponding Convex mutation and returns the result back to Gemini within the same WebSocket message cycle.
+
+---
+
+## Claim State Machine
+
+```
+greeting
+  → identifying_policy   (match_policy tool called)
+  → coverage_caveat      (check_coverage tool called)
+  → fact_gathering       (update_claim_field called 1–N times)
+  → visual_inspection    (request_visual_inspection called)
+  → voice_confirmation   (agent reads back summary)
+  → closed               (finalize_claim called)
 ```
 
-3. Set up environment variables:
-```bash
-cp .env.example .env.local
+Database claim statuses: `call` → `draft` → `in_review` → `accepted` / `rejected`
+
+---
+
+## Payout Calculation
+
+After `finalize_claim`, Convex computes the expected payout:
+
+```
+retail_price  = Tavily search result (or hardcoded fallback)
+depreciation  = purchase_year_delta × policy.depreciationRatePerYear
+                capped at policy.maxDepreciationPct
+depreciated_value = retail_price × (1 - depreciation)
+payout_range  = [depreciated_value - deductible × 1.05,
+                 depreciated_value - deductible × 0.95]
 ```
 
-4. Configure your environment variables:
-```env
-# Authentication (Clerk)
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
-CLERK_SECRET_KEY=
-NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
-NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
-NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/
-NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/
+Electronics example: MacBook Pro 14 (2023), retail €2399, 2 years × 10% = 20% depreciation, €150 deductible → **expected payout €1700–1769**.
 
-# Convex
-NEXT_PUBLIC_CONVEX_URL=
-CONVEX_DEPLOYMENT=
-CONVEX_ADMIN_KEY=
-
-# Polar.sh
-POLAR_WEBHOOK_SECRET=
-
-# Frontend
-NEXT_PUBLIC_BASE_URL=http://localhost:3000
-
-# Optional: AI Integration
-OPENAI_API_KEY=
-```
-
-5. Run the development server:
-```bash
-bun run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) to see your application.
+---
 
 ## Project Structure
 
 ```
+berlin-hack/
 ├── app/
-│   ├── (auth)/         # Authentication routes
-│   ├── (marketing)/    # Marketing pages
-│   ├── api/           # API routes
-│   ├── dashboard/     # Dashboard pages
-│   └── playground/    # AI Playground
+│   ├── page.tsx                        # Landing page
+│   ├── (pages)/
+│   │   ├── axa/
+│   │   │   ├── page.tsx                # Policy dashboard
+│   │   │   ├── call/page.tsx           # Live call screen
+│   │   │   └── _components/            # AXA-branded UI components
+│   │   ├── onboarding/page.tsx         # Policy selection
+│   │   ├── form/[token]/page.tsx       # Async documentation upload
+│   │   └── pitch/page.tsx              # Demo pitch screen
+│   └── api/
+│       └── gemini/ephemeral-token/     # Server-side Gemini token endpoint
 ├── components/
-│   ├── homepage/     # Landing page components
-│   ├── shared/       # Shared UI components
-│   └── wrapper/      # Layout wrappers and navigation
-├── config/           # Configuration files
-├── convex/          # Convex DB schema and functions
-├── lib/             # Utility functions
-├── public/          # Static assets
-│   ├── images/      # Image assets
-│   └── svg/         # SVG assets
-└── styles/          # Global styles
+│   ├── call/
+│   │   ├── use-gemini-live.ts          # Gemini Live WebSocket hook
+│   │   ├── use-tool-bridge.ts          # Tool call → Convex mutation router
+│   │   ├── audio-pipeline.ts           # Microphone capture + speaker playback
+│   │   └── video-pipeline.ts           # Camera capture (3fps JPEG)
+│   └── ui/                             # Shadcn/ui components
+├── convex/
+│   ├── schema.ts                       # Database schema
+│   ├── claims.ts                       # Claim CRUD + lifecycle
+│   ├── tools.ts                        # Tool call handlers (mutations)
+│   ├── tavily.ts                       # Price research action
+│   ├── policyTemplates.ts              # Policy definitions
+│   └── users.ts                        # Clerk user sync
+├── lib/
+│   ├── agent/
+│   │   ├── system-prompt.ts            # Lina's persona + behavior instructions
+│   │   ├── tool-schemas.ts             # Gemini tool JSON schemas
+│   │   └── state-machine.ts            # Claim stage transitions
+│   └── axa/
+│       └── mock-customer.ts            # Demo user + policy data
+└── docs/                               # Internal development docs
 ```
 
-## Available Scripts
+---
 
-- `bun run dev` - Start development server
-- `bun run build` - Build for production
-- `bun run start` - Start production server
-- `bun run lint` - Run ESLint
-- `bun run format` - Format code with Prettier
+## Setup & Installation
 
-## Setup Tutorial
+### Prerequisites
 
-Watch this video for a complete walkthrough of setting up the starter kit:
+- Node.js 20+ or Bun 1.x
+- A Convex account — [convex.dev](https://convex.dev)
+- A Clerk account — [clerk.com](https://clerk.com)
+- A Google AI Studio API key with Gemini Live access — [aistudio.google.com](https://aistudio.google.com)
+- A Tavily API key (optional) — [tavily.com](https://tavily.com)
 
-[![Next.js Starter Kit Setup Tutorial](https://img.youtube.com/vi/UzpGzbDQP7k/maxresdefault.jpg)](https://www.youtube.com/watch?v=UzpGzbDQP7k)
+### 1. Clone and install
 
-The video covers:
-- Complete setup process from start to finish
-- Authentication setup with Clerk
-- Database setup with Convex
-- Payment integration with Polar.sh
-- Local development with ngrok
-- Testing the subscription flow
-- Troubleshooting common issues
-
-## Setup Guide
-
-### 1. Initial Setup
-1. Clone the repository:
 ```bash
-git clone https://github.com/michaelshimeles/nextjs-starter-kit.git
-```
-
-2. Install dependencies:
-```bash
+git clone https://github.com/vbakhteev/berlin-hack.git
+cd berlin-hack
 bun install
 ```
 
-3. Create environment variables file:
+### 2. Set up Convex
+
 ```bash
-cp .env.example .env.local
+npx convex dev
 ```
 
-### 2. Service Setup
+Follow the prompts to create a new Convex project. This will populate `NEXT_PUBLIC_CONVEX_URL` and `CONVEX_DEPLOYMENT` in `.env.local`.
 
-#### Clerk Authentication
-1. Go to [clerk.com](https://clerk.com) and create a new project
-2. Name your project (e.g., "next-starter")
-3. Select authentication methods (Email and Google recommended)
-4. Copy these environment variables to `.env.local`:
+### 3. Set up Clerk
+
+1. Create a project at [clerk.com](https://clerk.com)
+2. Under **JWT Templates**, create a new template and select **Convex**
+3. Copy the issuer URL — add it as `CLERK_JWT_ISSUER_DOMAIN` in your Convex dashboard environment variables
+4. Copy the publishable and secret keys into `.env.local`
+5. Under **Webhooks**, add your Convex HTTP actions URL as the endpoint:
+   `https://<your-convex-deployment>.convex.site/clerk-webhook`
+
+### 4. Configure environment variables
+
+Create `.env.local` with:
+
 ```env
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
-CLERK_SECRET_KEY=
+# Convex
+NEXT_PUBLIC_CONVEX_URL=https://<your-deployment>.convex.cloud
+CONVEX_DEPLOYMENT=dev:<your-deployment>
+
+# Clerk
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
 NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
 NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/
 NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/
-```
-5. Go to JWT Templates in Clerk dashboard
-6. Create a new template selecting Convex
-7. Copy the issuer URL for the next step
-8. **Important**: Click Save on the JWT template
 
-#### Convex Backend
-1. Run the following command to create a new Convex project:
+# Google Gemini
+GEMINI_API_KEY=AIza...
+
+# App
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+```
+
+In your **Convex dashboard** environment variables, also set:
+
+```
+CLERK_WEBHOOK_SECRET=whsec_...     # From Clerk webhook setup
+TAVILY_API_KEY=tvly-...            # Optional, enables live price search
+```
+
+### 5. Run
+
+In two separate terminals:
+
 ```bash
+# Terminal 1 — Convex backend
 npx convex dev
-```
-2. When prompted, create a new project and name it in the Convex dashboard
-3. The command will automatically add the `NEXT_PUBLIC_CONVEX_URL` to your `.env.local`
-4. Add these environment variables in the Convex dashboard:
-   - `CLERK_SIGNING_KEY` (from Clerk JWT issuer URL)
-   - `FRONTEND_URL` (your app URL, will be set in Local Development)
-   - `POLAR_ACCESS_TOKEN` (will get this in next step)
-   - `POLAR_WEBHOOK_SECRET` (will get this in Polar setup)
 
-#### Polar.sh Payments
-1. Go to [sandbox.polar.sh](https://sandbox.polar.sh) for testing (use this instead of production polar.sh)
-2. Create a new organization
-3. Create a new product:
-   - Set name and description
-   - Add monthly pricing (e.g., $12/month)
-   - Add yearly pricing (e.g., $100/year)
-   - Copy the product ID and price IDs (click the three dots next to the product)
-4. Generate an access token:
-   - Go to Settings
-   - Create new access token with full permissions
-   - Set no expiration date for testing
-   - Add the token to Convex environment variables as `POLAR_ACCESS_TOKEN`
-5. Set up webhook:
-   - Go to Settings > Webhooks
-   - Add endpoint: Your Convex HTTP Actions URL + `/payment-webhook`
-     - Find your Convex HTTP Actions URL in the Convex dashboard under "Settings > URL & Deploy Key"
-     - It looks like: `https://<your-deployment-id>.convex.site`
-     - The final webhook URL should be: `https://<your-deployment-id>.convex.site/payment-webhook`
-   - Select "Raw" format
-   - Select all event types
-   - Click "Generate" to create a webhook secret
-   - Copy the webhook secret
-   - Add it to Convex environment variables as `POLAR_WEBHOOK_SECRET`
-   - Click "Create" to save the webhook
-
-### 3. Database Setup
-When you run `npx convex dev`, these tables will be automatically created:
-- `users`: Stores user information
-- `subscriptions`: Stores subscription details
-- `plans`: Stores your product plans
-- `webhookEvents`: Tracks webhook events from Polar
-
-In your Convex dashboard, add a plan to the `plans` table:
-```json
-{
-  "description": "<your-description>",
-  "key": "pro",
-  "name": "<your-plan-name>",
-  "polarProductId": "<your-product-id>",
-  "prices": {
-    "month": {
-      "usd": {
-        "amount": "<monthly-amount>",
-        "polarId": "<monthly-price-id>"
-      }
-    },
-    "year": {
-      "usd": {
-        "amount": "<yearly-amount>",
-        "polarId": "<yearly-price-id>"
-      }
-    }
-  }
-}
-```
-
-### 4. Development vs Production Setup
-
-#### Local Development
-1. Install [ngrok](https://ngrok.com/) for local webhook testing
-2. Start the development server:
-```bash
+# Terminal 2 — Next.js frontend
 bun run dev
 ```
-3. In a new terminal, run ngrok:
+
+Open [http://localhost:3000](http://localhost:3000).
+
+### Available scripts
+
 ```bash
-ngrok http 3000
-```
-4. Copy the ngrok URL (e.g., `https://xxxx-xx-xx-xxx-xx.ngrok.io`)
-5. Set this URL as `FRONTEND_URL` in your Convex environment variables
-
-#### Production Setup
-When deploying to production:
-1. Replace the `FRONTEND_URL` in Convex environment variables with your production URL
-2. Update the webhook URL in Polar.sh dashboard to use your production Convex URL
-3. Consider creating a new organization in production Polar.sh instead of sandbox
-
-### 5. AI Playground Setup (Optional)
-Add these environment variables to `.env.local` to enable the AI chat feature:
-```env
-OPENAI_API_KEY=your_key
-DEEPSEEK_API_KEY=your_key
-GROQ_API_KEY=your_key
+bun run dev       # Start Next.js dev server (Turbopack)
+bun run build     # Production build
+bun run start     # Start production server
+bun run lint      # ESLint
+npx convex dev    # Run Convex backend in watch mode
+npx convex deploy # Deploy Convex functions to production
 ```
 
-### Testing Your Setup
-1. Start the development server and visit [http://localhost:3000](http://localhost:3000)
-2. Try signing up and accessing the dashboard
-3. Test the subscription flow with these test card details:
-   - Card number: `4242 4242 4242 4242`
-   - Any future expiry date
-   - Any 3 digits for CVC
-   - Any name and address
-4. After subscribing:
-   - Check the Convex dashboard's Data section
-   - Verify that the `subscriptions` table has been updated
-   - Check the `webhookEvents` table for successful webhook delivery
-5. Test subscription cancellation:
-   - Go to dashboard settings
-   - Cancel your subscription
-   - Verify that you lose access to protected routes
-   - Check that the subscription status is updated in Convex
+---
 
-### Troubleshooting
-1. If subscription isn't working:
-   - Verify webhook is properly configured in Polar
-   - Check Convex webhook secret is correct
-   - Ensure plan IDs match in Polar and Convex plans table
-   - Check the `webhookEvents` table in Convex for any errors
-   - Verify the `FRONTEND_URL` matches your current environment
-2. If authentication isn't working:
-   - Verify Clerk JWT template is saved
-   - Check Clerk signing key in Convex
-   - Ensure all Clerk environment variables are set correctly
-3. If AI playground isn't responding:
-   - Verify API keys are correctly set in environment variables
-   - Check for any console errors in the browser
+## Demo User
 
-## Sponsors and Supporters
+The app ships with a pre-configured demo user (Max Müller) for the AXA demo flow. After signing in, navigate to `/axa` to see the policy dashboard, then tap **Open a claim** to start a voice session with Lina.
 
-Special thanks to [Convex](https://www.convex.dev/) for their sponsorship and support in making this starter kit possible. Their real-time database and file storage solutions have been instrumental in creating a powerful foundation for modern web applications.
+Supported policy types in the demo:
 
-## Contributing
+- Electronics (laptop, phone, tablet)
+- Car / motor vehicle
+- Bicycle
+- Pet insurance
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+---
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-If you find this template helpful, please give it a ⭐️ on GitHub!
+MIT
