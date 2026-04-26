@@ -24,9 +24,8 @@ export const bySession = query({
       .query("claims")
       .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
       .unique();
-    if (!claim) {
-      return null;
-    }
+    if (!claim) return null;
+
     const policy = claim.matchedPolicyType
       ? (getPolicyTemplate(claim.matchedPolicyType) ?? null)
       : null;
