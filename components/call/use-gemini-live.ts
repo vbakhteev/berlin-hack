@@ -5,7 +5,12 @@ import { toolSchemas } from "@/lib/agent/tool-schemas";
 import { AudioPipeline, AudioPlayer } from "./audio-pipeline";
 import { VideoPipeline } from "./video-pipeline";
 
-export type GeminiLiveState = "idle" | "connecting" | "connected" | "error" | "ended";
+export type GeminiLiveState =
+  | "idle"
+  | "connecting"
+  | "connected"
+  | "error"
+  | "ended";
 
 export type ToolCallPayload = {
   id: string;
@@ -35,7 +40,7 @@ const GEMINI_WS_URL =
 // 200ms of PCM16 silence at 16kHz — used to open the first user turn
 // so Gemini generates the proactive greeting.
 function makeSilenceB64(ms: number): string {
-  const bytes = new Uint8Array(Math.floor(16000 * ms / 1000) * 2); // zeros
+  const bytes = new Uint8Array(Math.floor((16000 * ms) / 1000) * 2); // zeros
   let s = "";
   for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
   return btoa(s);
@@ -61,6 +66,12 @@ export function useGeminiLive({
   const pendingToolCallsRef = useRef<Map<string, ToolCallPayload>>(new Map());
   // Tracks intentional closes so strict-mode cleanup doesn't fire onclose state update
   const intentionalCloseRef = useRef(false);
+  // Auto-reconnect: store key + count + connect ref for use inside ws.onclose closure
+  const apiKeyRef = useRef<string | null>(null);
+  const reconnectCountRef = useRef(0);
+  const connectRef = useRef<
+    ((apiKey: string, isReconnect?: boolean) => Promise<void>) | null
+  >(null);
 
   const updateState = useCallback(
     (s: GeminiLiveState) => {
@@ -89,7 +100,9 @@ export function useGeminiLive({
   );
 
   const connect = useCallback(
-    async (apiKey: string) => {
+    async (apiKey: string, isReconnect = false) => {
+      if (!isReconnect) reconnectCountRef.current = 0;
+      apiKeyRef.current = apiKey;
       intentionalCloseRef.current = false;
       updateState("connecting");
 
@@ -142,7 +155,7 @@ export function useGeminiLive({
 
         if (data.setupComplete !== undefined) {
           updateState("connected");
-          audioPlayerRef.current?.playDialToneAndCrackle();
+          if (!isReconnect) audioPlayerRef.current?.playDialToneAndCrackle();
 
           // VAD state — shared between mic callback and Lina's playback handlers.
           // enabled starts false: ambient noise must not re-trigger greetings before
@@ -157,7 +170,10 @@ export function useGeminiLive({
           player.onPlaybackStart = () => {
             isMutedRef.current = true;
             if (vad.active) {
-              if (vad.timer) { clearTimeout(vad.timer); vad.timer = null; }
+              if (vad.timer) {
+                clearTimeout(vad.timer);
+                vad.timer = null;
+              }
               vad.active = false;
               sendMessage({ realtimeInput: { activityEnd: {} } });
             }
@@ -181,7 +197,9 @@ export function useGeminiLive({
               });
 
               // RMS-based VAD — detect speech onset and offset
-              const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+              const bytes = Uint8Array.from(atob(base64), (c) =>
+                c.charCodeAt(0)
+              );
               const pcm = new Int16Array(bytes.buffer);
               let sumSq = 0;
               for (let i = 0; i < pcm.length; i++) {
@@ -197,7 +215,10 @@ export function useGeminiLive({
                   vad.active = true;
                   sendMessage({ realtimeInput: { activityStart: {} } });
                 }
-                if (vad.timer) { clearTimeout(vad.timer); vad.timer = null; }
+                if (vad.timer) {
+                  clearTimeout(vad.timer);
+                  vad.timer = null;
+                }
               } else if (vad.active && !vad.timer) {
                 // Silence after speech — 300ms is enough to distinguish end-of-turn
                 // from a natural mid-sentence pause. Gemini processing adds another
@@ -222,7 +243,14 @@ export function useGeminiLive({
           // until ~600ms after the pickup click (~10s), so Lina speaks right on pickup.
           setTimeout(() => {
             sendMessage({ realtimeInput: { activityStart: {} } });
-            sendMessage({ realtimeInput: { audio: { mimeType: "audio/pcm;rate=16000", data: SILENCE_200MS } } });
+            sendMessage({
+              realtimeInput: {
+                audio: {
+                  mimeType: "audio/pcm;rate=16000",
+                  data: SILENCE_200MS,
+                },
+              },
+            });
             setTimeout(() => {
               sendMessage({ realtimeInput: { activityEnd: {} } });
             }, 300);
@@ -266,17 +294,27 @@ export function useGeminiLive({
         }
 
         if (data.goAway) {
-          console.warn("[GeminiLive] goAway received", JSON.stringify(data.goAway));
-          // Drain audio buffer before tearing down — Lina may still be mid-sentence
-          const drainThenCleanup = () => {
-            if (audioPlayerRef.current?.isBusy) {
-              setTimeout(drainThenCleanup, 150);
-            } else {
-              doCleanup();
-              updateState("ended");
-            }
-          };
-          drainThenCleanup();
+          console.warn(
+            "[GeminiLive] goAway received",
+            JSON.stringify(data.goAway)
+          );
+          // Mark intentional immediately so ws.onclose (which fires right after goAway)
+          // doesn't double-trigger updateState("ended") or stop the audio player.
+          intentionalCloseRef.current = true;
+          // 1000ms head start: in-flight audio chunks from Gemini need time to arrive
+          // before we check isBusy. Without this, the gap between utterances reads as
+          // isBusy=false and the call terminates while Lina is mid-sentence.
+          setTimeout(() => {
+            const drainThenCleanup = () => {
+              if (audioPlayerRef.current?.isBusy) {
+                setTimeout(drainThenCleanup, 150);
+              } else {
+                doCleanup();
+                updateState("ended");
+              }
+            };
+            drainThenCleanup();
+          }, 1000);
         }
       };
 
@@ -286,15 +324,58 @@ export function useGeminiLive({
       };
 
       ws.onclose = (e) => {
-        console.warn("[GeminiLive] ws closed", { code: e.code, reason: e.reason, wasClean: e.wasClean, intentional: intentionalCloseRef.current });
-        if (!intentionalCloseRef.current && stateRef.current !== "ended") {
+        const wasIntentional = intentionalCloseRef.current;
+        console.warn("[GeminiLive] ws closed", {
+          code: e.code,
+          reason: e.reason,
+          wasClean: e.wasClean,
+          intentional: wasIntentional,
+          reconnectCount: reconnectCountRef.current,
+        });
+
+        if (wasIntentional) {
+          // goAway or user disconnect owns cleanup — don't touch audio player
+          wsRef.current = null;
+          return;
+        }
+
+        if (
+          stateRef.current !== "ended" &&
+          reconnectCountRef.current < 3 &&
+          apiKeyRef.current
+        ) {
+          // Unexpected drop (server rotation, network blip) — auto-reconnect
+          const attempt = ++reconnectCountRef.current;
+          console.warn(
+            `[GeminiLive] unexpected close, auto-reconnect ${attempt}/3`
+          );
+          doCleanup();
+          // doCleanup sets intentionalCloseRef=true; reset it so the new session can close normally
+          intentionalCloseRef.current = false;
+          setTimeout(() => {
+            if (
+              reconnectCountRef.current <= 3 &&
+              apiKeyRef.current &&
+              connectRef.current
+            ) {
+              connectRef.current(apiKeyRef.current, true);
+            }
+          }, 1000);
+        } else if (stateRef.current !== "ended") {
+          doCleanup();
           updateState("ended");
         }
-        doCleanup();
       };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [systemPrompt, sendMessage, sendToolResponse, updateState, onToolCall, onTranscript]
+    [
+      systemPrompt,
+      sendMessage,
+      sendToolResponse,
+      updateState,
+      onToolCall,
+      onTranscript,
+    ]
   );
 
   const startVideo = useCallback(
@@ -328,6 +409,7 @@ export function useGeminiLive({
   }, []);
 
   const disconnect = useCallback(() => {
+    reconnectCountRef.current = 999; // block any in-flight reconnect timers
     doCleanup();
     updateState("ended");
   }, [updateState]);
@@ -345,6 +427,12 @@ export function useGeminiLive({
     videoPipelineRef.current = null;
     wsRef.current = null;
   }
+
+  // Keep connectRef pointing at the latest version of connect so ws.onclose
+  // can call it without capturing a stale closure.
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   useEffect(() => {
     return () => doCleanup();

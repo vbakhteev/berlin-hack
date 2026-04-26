@@ -26,7 +26,9 @@ const AXA_DEMO_POLICY_TYPES = ["electronics", "haftpflicht", "hausrat"];
 const POST_FINALIZE_HANGUP_MS = 15_000;
 
 function formatTime(n: number) {
-  const m = Math.floor(n / 60).toString().padStart(2, "0");
+  const m = Math.floor(n / 60)
+    .toString()
+    .padStart(2, "0");
   const s = (n % 60).toString().padStart(2, "0");
   return `${m}:${s}`;
 }
@@ -55,7 +57,9 @@ export function IosCallScreen({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     fetch("/api/gemini/ephemeral-token")
       .then((r) => r.json())
-      .then((d) => { if (d.key) setApiKey(d.key); })
+      .then((d) => {
+        if (d.key) setApiKey(d.key);
+      })
       .catch(console.error);
   }, []);
 
@@ -65,7 +69,11 @@ export function IosCallScreen({ sessionId }: { sessionId: string }) {
   }, [router, sessionId]);
 
   const onToolCall = useCallback(
-    async (call: { id: string; name: string; args: Record<string, unknown> }) => {
+    async (call: {
+      id: string;
+      name: string;
+      args: Record<string, unknown>;
+    }) => {
       if (call.name === "finalize_claim") {
         call.args.transcriptText = transcriptRef.current.join("\n");
       }
@@ -81,7 +89,9 @@ export function IosCallScreen({ sessionId }: { sessionId: string }) {
           autoEndTimerRef.current = setTimeout(async () => {
             disconnect();
             if (claim?._id) {
-              await endCallMutation({ claimId: claim._id }).catch(console.error);
+              await endCallMutation({ claimId: claim._id }).catch(
+                console.error
+              );
             }
             goToSummary();
           }, POST_FINALIZE_HANGUP_MS);
@@ -93,7 +103,7 @@ export function IosCallScreen({ sessionId }: { sessionId: string }) {
     [handleToolCall, claim?._id, endCallMutation, goToSummary]
   );
 
-  const userLanguage = ((currentUser?.language) ?? "de") as "de" | "en";
+  const userLanguage = (currentUser?.language ?? "de") as "de" | "en";
 
   const { state, connect, disconnect } = useGeminiLive({
     systemPrompt: currentUser
@@ -118,11 +128,18 @@ export function IosCallScreen({ sessionId }: { sessionId: string }) {
     },
     onStateChange: (s) => {
       if (s === "connected") {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
         setSeconds(0);
         timerRef.current = setInterval(() => setSeconds((n) => n + 1), 1000);
       }
       if (s === "ended" || s === "error") {
-        if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
         // If the WS dropped after a successful finalize (e.g. goAway), navigate to summary
         if (s === "ended" && finalizedRef.current) {
           goToSummary();
@@ -149,9 +166,15 @@ export function IosCallScreen({ sessionId }: { sessionId: string }) {
 
   const handleEnd = async () => {
     // Cancel pending auto-end timer — user is taking over
-    if (autoEndTimerRef.current) { clearTimeout(autoEndTimerRef.current); autoEndTimerRef.current = null; }
+    if (autoEndTimerRef.current) {
+      clearTimeout(autoEndTimerRef.current);
+      autoEndTimerRef.current = null;
+    }
     disconnect();
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
     if (claim?._id) {
       await endCallMutation({ claimId: claim._id }).catch(console.error);
     }
@@ -167,12 +190,12 @@ export function IosCallScreen({ sessionId }: { sessionId: string }) {
     state === "connecting"
       ? "Verbinde …"
       : state === "connected"
-      ? formatTime(seconds)
-      : state === "ended"
-      ? "Anruf beendet"
-      : state === "error"
-      ? "Verbindungsfehler"
-      : "Klingelt …";
+        ? formatTime(seconds)
+        : state === "ended"
+          ? "Anruf beendet"
+          : state === "error"
+            ? "Verbindungsfehler"
+            : "Klingelt …";
 
   return (
     <div
@@ -205,7 +228,11 @@ export function IosCallScreen({ sessionId }: { sessionId: string }) {
 
       {/* Top action buttons */}
       <div className="flex justify-center gap-10 pb-10">
-        <IosTopButton label="Lautsprecher" active={speakerOn} onClick={() => setSpeakerOn((s) => !s)}>
+        <IosTopButton
+          label="Lautsprecher"
+          active={speakerOn}
+          onClick={() => setSpeakerOn((s) => !s)}
+        >
           <Volume2 className="w-6 h-6" strokeWidth={1.8} />
         </IosTopButton>
 
@@ -213,17 +240,25 @@ export function IosCallScreen({ sessionId }: { sessionId: string }) {
           <Video className="w-6 h-6" strokeWidth={1.8} />
         </IosTopButton>
 
-        <IosTopButton label="Stumm" active={muted} onClick={() => setMuted((m) => !m)}>
-          {muted
-            ? <MicOff className="w-6 h-6" strokeWidth={1.8} />
-            : <Mic className="w-6 h-6" strokeWidth={1.8} />}
+        <IosTopButton
+          label="Stumm"
+          active={muted}
+          onClick={() => setMuted((m) => !m)}
+        >
+          {muted ? (
+            <MicOff className="w-6 h-6" strokeWidth={1.8} />
+          ) : (
+            <Mic className="w-6 h-6" strokeWidth={1.8} />
+          )}
         </IosTopButton>
       </div>
 
       {/* Bottom row */}
       <div
         className="flex justify-around items-center px-8"
-        style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 32px)" }}
+        style={{
+          paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 32px)",
+        }}
       >
         <IosBottomButton label="Ziffernfeld">
           <Grid3x3 className="w-7 h-7 text-white" strokeWidth={1.8} />
@@ -246,7 +281,11 @@ export function IosCallScreen({ sessionId }: { sessionId: string }) {
 }
 
 function IosTopButton({
-  label, children, active, disabled, onClick,
+  label,
+  children,
+  active,
+  disabled,
+  onClick,
 }: {
   label: string;
   children: React.ReactNode;
@@ -270,7 +309,13 @@ function IosTopButton({
   );
 }
 
-function IosBottomButton({ label, children }: { label: string; children: React.ReactNode }) {
+function IosBottomButton({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex flex-col items-center gap-2">
       <button className="w-16 h-16 rounded-full bg-[#2C2C2E] flex items-center justify-center active:brightness-75 transition-all">

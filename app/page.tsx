@@ -4,7 +4,7 @@ import Link from "next/link";
 
 export default async function HomePage() {
   const { userId } = await auth();
-  if (userId) redirect("/dashboard");
+  if (userId) redirect("/axa");
 
   return (
     <main className="min-h-[100dvh] bg-white flex flex-col">
