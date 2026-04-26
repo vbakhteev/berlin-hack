@@ -1,5 +1,5 @@
 "use client";
-
+// v2
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toolSchemas } from "@/lib/agent/tool-schemas";
 import { AudioPipeline, AudioPlayer } from "./audio-pipeline";
