@@ -280,11 +280,11 @@ Flat. Monoton. Keine Energie. Keine Wärme. Kein Aufschwung am Ende.
 Die Pausen sind LANG. Mindestens 2 Sekunden zwischen den Teilen.`;
 
 const GREETINGS_EN = `Greeting variations (English):
-Last name first. No "hi". VERY slow. Long pauses between each part.
-- "Schmidt. ......Inca Insurance. ......good afternoon."
-- "Inca Insurance, ......Schmidt. ......afternoon."
-- "Schmidt. ......yes. ......Inca Insurance."
-Flat. Monotone. No warmth. No upswing at the end. Pauses at least 2 seconds long.
+First name only — "Sandra". UK customer service style. No "hi", no "hello". VERY slow. Long pauses.
+- "Sandra. ......Inca Insurance. ......afternoon."
+- "Inca Insurance, ......Sandra speaking. ......yes, good afternoon."
+- "Sandra here. ......Inca Insurance. ......afternoon."
+Flat. Monotone. No warmth. No upswing. Pauses at least 2 seconds.
 IMPORTANT for English: use even more "..." than in German — English TTS is naturally more expressive and needs more friction to stay flat.`;
 
 export function buildSystemPrompt(user: UserContext): string {

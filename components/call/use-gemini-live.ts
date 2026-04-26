@@ -14,10 +14,11 @@ export type ToolCallPayload = {
 };
 
 // Locked voices per language — change only in a dedicated voice-review session, not during bug fixes.
-// Research: Charon ("deep, informational, steady") works for both DE and EN via Gemini's native code-switching.
+// DE: Charon — deep, flat, monotone. Validated golden state.
+// EN: Kore — firm, neutral female. Validated for English calls.
 export const LINA_VOICES = {
   de: "Charon",
-  en: "Charon",
+  en: "Kore",
 } as const;
 
 type UseGeminiLiveOptions = {
