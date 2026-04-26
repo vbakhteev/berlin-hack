@@ -9,11 +9,11 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "App",
   description: "App",
-  other: {
-    "mobile-web-app-capable": "yes",
-    "apple-mobile-web-app-capable": "yes",
-    "apple-mobile-web-app-status-bar-style": "default",
-    "apple-mobile-web-app-title": "AXA",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "AXA",
   },
 };
 
@@ -25,9 +25,6 @@ export default function RootLayout({
   return (
     <ClerkProvider dynamic>
       <html lang="en" suppressHydrationWarning>
-        <head>
-          <link rel="manifest" href="/manifest.json" />
-        </head>
         <body className={GeistSans.className}>
           <Provider>
             <ThemeProvider
