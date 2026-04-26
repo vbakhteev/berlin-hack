@@ -31,7 +31,10 @@ export default function DashboardPage() {
   const claims = useQuery(api.claims.byUser);
   const currentUser = useQuery(api.users.currentUser);
   const createClaim = useMutation(api.claims.create);
+  const updateLanguage = useMutation(api.users.updateLanguage);
   const router = useRouter();
+
+  const language = currentUser?.language ?? "de";
 
   const handleOpenClaim = async () => {
     const sessionId = nanoid();
@@ -52,9 +55,18 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-background p-4 pb-8">
       <div className="mx-auto max-w-lg">
-        <div className="mb-6 pt-4">
-          <p className="text-sm text-muted-foreground">Welcome back</p>
-          <h1 className="text-2xl font-bold">{user?.firstName ?? "Friend"}</h1>
+        <div className="mb-6 pt-4 flex items-start justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">Welcome back</p>
+            <h1 className="text-2xl font-bold">{user?.firstName ?? "Friend"}</h1>
+          </div>
+          <button
+            onClick={() => updateLanguage({ language: language === "de" ? "en" : "de" })}
+            className="mt-1 text-xs font-medium px-3 py-1.5 rounded-full border border-border bg-muted hover:bg-muted/80 transition-colors tabular-nums"
+            title="Switch language / Sprache wechseln"
+          >
+            {language === "de" ? "🇩🇪 DE" : "🇬🇧 EN"}
+          </button>
         </div>
 
         {/* Primary CTA */}
