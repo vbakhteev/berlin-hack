@@ -1,0 +1,9 @@
+{
+  "name": "AXA",
+  "short_name": "AXA",
+  "start_url": "/axa",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#00008F",
+  "orientation": "portrait"
+}

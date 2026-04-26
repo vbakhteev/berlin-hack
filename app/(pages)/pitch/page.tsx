@@ -18,18 +18,20 @@ function ConvexVideo({
   videoRef,
   opacity,
   src,
+  muted,
   onEnded,
 }: {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   opacity: number;
   src?: string;
+  muted?: boolean;
   onEnded?: () => void;
 }) {
   return (
     <video
       ref={videoRef}
       src={src}
-      muted
+      muted={muted}
       playsInline
       onEnded={onEnded}
       style={{
@@ -253,7 +255,7 @@ export default function PitchPage() {
             <ConvexVideo
               videoRef={leftCallRef}
               opacity={callActive ? 1 : 0}
-              src="/videos/left-call.mp4"
+              src="/videos/left-call.mov"
               onEnded={() => { leftDoneRef.current = true; checkBothDone(); }}
             />
           </div>
