@@ -267,15 +267,17 @@ export function IosCallScreen({ sessionId }: { sessionId: string }) {
       className="fixed inset-0 flex flex-col select-none"
       style={{ backgroundColor: "#1C1C1E" }}
     >
-      {/* Full-screen camera preview behind iOS controls. Always mounted so
-          startVideo has a stable element ref; hidden via CSS when not active. */}
+      {/* Full-screen camera preview behind iOS controls. Always rendered (not
+          display:none) so iOS Safari keeps decoding frames into the canvas
+          capture pipeline — display:none pauses the video pipeline on iOS,
+          which would feed black JPEGs to Gemini and break visual inspection. */}
       <video
         ref={videoRef}
         autoPlay
         playsInline
         muted
-        className={`absolute inset-0 w-full h-full object-cover ${
-          isVideoActive ? "z-0" : "hidden"
+        className={`absolute inset-0 w-full h-full object-cover z-0 ${
+          isVideoActive ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
       />
       {/* Subtle dark gradient over the camera so iOS chrome stays legible */}

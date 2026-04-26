@@ -46,11 +46,17 @@ export function useToolBridge(sessionId: string) {
           });
 
         case "request_visual_inspection":
-          return requestVisualInspection({
+          // Fire-and-forget. Gemini Live closes the WS if the tool response
+          // takes longer than ~500ms; the Convex round-trip (patch + db.get +
+          // event push) reliably trips that. Local optimistic state in
+          // IosCallScreen already surfaces the button instantly — the mutation
+          // is just persistence so the flag survives a reload.
+          requestVisualInspection({
             sessionId,
             reason: args.reason as "policy_required" | "user_offered" | "agent_suggested",
             hint: args.hint,
-          });
+          }).catch(console.error);
+          return { ok: true };
 
         case "finalize_claim":
           return finalizeClaim({

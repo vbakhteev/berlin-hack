@@ -66,15 +66,16 @@ export function useGeminiLive({
   const pendingToolCallsRef = useRef<Map<string, ToolCallPayload>>(new Map());
   // Tracks intentional closes so strict-mode cleanup doesn't fire onclose state update
   const intentionalCloseRef = useRef(false);
-  // Auto-reconnect: store key + count + connect ref for use inside ws.onclose closure
-  const apiKeyRef = useRef<string | null>(null);
-  const reconnectCountRef = useRef(0);
-  const connectRef = useRef<
-    ((apiKey: string, isReconnect?: boolean) => Promise<void>) | null
-  >(null);
 
   const updateState = useCallback(
     (s: GeminiLiveState) => {
+      // Diagnostic: surface the call site when the call ends so we can
+      // tell whether it was goAway, ws.onclose, disconnect(), or something else.
+      if (s === "ended" || s === "error") {
+        console.warn(
+          `[GeminiLive] state -> ${s}\n` + new Error().stack
+        );
+      }
       stateRef.current = s;
       setState(s);
       onStateChange?.(s);
@@ -100,9 +101,7 @@ export function useGeminiLive({
   );
 
   const connect = useCallback(
-    async (apiKey: string, isReconnect = false) => {
-      if (!isReconnect) reconnectCountRef.current = 0;
-      apiKeyRef.current = apiKey;
+    async (apiKey: string) => {
       intentionalCloseRef.current = false;
       updateState("connecting");
 
@@ -151,11 +150,16 @@ export function useGeminiLive({
           return;
         }
 
-        console.debug("[GeminiLive]", JSON.stringify(data).slice(0, 200));
+        // Truncated debug for noisy audio chunks; full dump for tool/control messages.
+        if (data.toolCall || data.goAway || data.serverContent?.turnComplete) {
+          console.warn("[GeminiLive] CONTROL MSG", JSON.stringify(data));
+        } else {
+          console.debug("[GeminiLive]", JSON.stringify(data).slice(0, 200));
+        }
 
         if (data.setupComplete !== undefined) {
           updateState("connected");
-          if (!isReconnect) audioPlayerRef.current?.playDialToneAndCrackle();
+          audioPlayerRef.current?.playDialToneAndCrackle();
 
           // VAD state — shared between mic callback and Lina's playback handlers.
           // enabled starts false: ambient noise must not re-trigger greetings before
@@ -341,7 +345,6 @@ export function useGeminiLive({
           reason: e.reason,
           wasClean: e.wasClean,
           intentional: wasIntentional,
-          reconnectCount: reconnectCountRef.current,
         });
 
         if (wasIntentional) {
@@ -350,29 +353,12 @@ export function useGeminiLive({
           return;
         }
 
-        if (
-          stateRef.current !== "ended" &&
-          reconnectCountRef.current < 3 &&
-          apiKeyRef.current
-        ) {
-          // Unexpected drop (server rotation, network blip) — auto-reconnect
-          const attempt = ++reconnectCountRef.current;
-          console.warn(
-            `[GeminiLive] unexpected close, auto-reconnect ${attempt}/3`
-          );
-          doCleanup();
-          // doCleanup sets intentionalCloseRef=true; reset it so the new session can close normally
-          intentionalCloseRef.current = false;
-          setTimeout(() => {
-            if (
-              reconnectCountRef.current <= 3 &&
-              apiKeyRef.current &&
-              connectRef.current
-            ) {
-              connectRef.current(apiKeyRef.current, true);
-            }
-          }, 1000);
-        } else if (stateRef.current !== "ended") {
+        // Unexpected close: end the call cleanly. We do NOT auto-reconnect:
+        // Gemini Live sessions are not resumable by default, so a "reconnect"
+        // would open a fresh session with no memory of the prior conversation
+        // — the user would experience the call restarting from scratch with
+        // a fresh greeting. Better to surface the failure and let them retry.
+        if (stateRef.current !== "ended") {
           doCleanup();
           updateState("ended");
         }
@@ -394,9 +380,17 @@ export function useGeminiLive({
       if (videoPipelineRef.current) return;
       const pipeline = new VideoPipeline();
       videoPipelineRef.current = pipeline;
+      let frameCount = 0;
       await pipeline.start(
         videoEl,
         (base64) => {
+          frameCount += 1;
+          // Diagnostic: surface frame size + cadence so we can verify frames
+          // aren't black (a real ~640x480 JPEG @ q=0.7 is ~20-40KB; black is ~3KB).
+          const kb = Math.round((base64.length * 3) / 4 / 1024);
+          if (frameCount <= 3 || frameCount % 10 === 0) {
+            console.debug(`[VideoPipeline] frame #${frameCount} sent (~${kb}KB)`);
+          }
           sendMessage({
             realtimeInput: {
               video: { mimeType: "image/jpeg", data: base64 },
@@ -420,7 +414,6 @@ export function useGeminiLive({
   }, []);
 
   const disconnect = useCallback(() => {
-    reconnectCountRef.current = 999; // block any in-flight reconnect timers
     doCleanup();
     updateState("ended");
   }, [updateState]);
@@ -439,12 +432,6 @@ export function useGeminiLive({
     wsRef.current = null;
     setIsVideoActive(false);
   }
-
-  // Keep connectRef pointing at the latest version of connect so ws.onclose
-  // can call it without capturing a stale closure.
-  useEffect(() => {
-    connectRef.current = connect;
-  }, [connect]);
 
   useEffect(() => {
     return () => doCleanup();
