@@ -128,7 +128,7 @@ export default function SubmittedPage({ params }: PageProps) {
           <Button
             size="lg"
             className="w-full h-14"
-            onClick={() => router.push("/dashboard")}
+            onClick={() => router.push("/axa")}
           >
             Go to dashboard
           </Button>

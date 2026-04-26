@@ -78,7 +78,9 @@ export function ReviewView({ sessionId }: { sessionId: string }) {
       productBrandModel: claim.productBrandModel ?? "",
       damageSummary: claim.damageSummary ?? "",
       estimatedDamageEur:
-        claim.estimatedDamageEur != null ? String(claim.estimatedDamageEur) : "",
+        claim.estimatedDamageEur != null
+          ? String(claim.estimatedDamageEur)
+          : "",
     });
   }, [claim, isEditing]);
 
@@ -87,7 +89,10 @@ export function ReviewView({ sessionId }: { sessionId: string }) {
   const isSubmitted = claim?.status === "in_review";
 
   useEffect(() => {
-    if (!isEstimating) { setEstimatingTimedOut(false); return; }
+    if (!isEstimating) {
+      setEstimatingTimedOut(false);
+      return;
+    }
     const t = setTimeout(() => setEstimatingTimedOut(true), 5000);
     return () => clearTimeout(t);
   }, [isEstimating]);
@@ -193,7 +198,8 @@ export function ReviewView({ sessionId }: { sessionId: string }) {
     subtext = "Update anything Lina got wrong, then save.";
   } else if (claim?.status === "in_review") {
     h1 = "Claim in review";
-    subtext = "Your claim is being reviewed. You can still add documents below.";
+    subtext =
+      "Your claim is being reviewed. You can still add documents below.";
   } else {
     h1 = "Review your claim";
     subtext = "Review the details below and attach any documents needed.";
@@ -204,9 +210,7 @@ export function ReviewView({ sessionId }: { sessionId: string }) {
       <div className="mx-auto max-w-lg">
         <div className="py-6 text-center">
           <h1 className="text-xl font-bold">{h1}</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {subtext}
-          </p>
+          <p className="text-sm text-muted-foreground mt-1">{subtext}</p>
         </div>
 
         {isEditing ? (
@@ -217,18 +221,14 @@ export function ReviewView({ sessionId }: { sessionId: string }) {
                 label="Incident type"
                 placeholder="e.g. theft, accidental damage, water damage"
                 value={form.incidentType}
-                onChange={(v) =>
-                  setForm((f) => ({ ...f, incidentType: v }))
-                }
+                onChange={(v) => setForm((f) => ({ ...f, incidentType: v }))}
               />
               <EditField
                 id="incidentDate"
                 label="When"
                 placeholder="e.g. 2026-04-23 or yesterday afternoon"
                 value={form.incidentDate}
-                onChange={(v) =>
-                  setForm((f) => ({ ...f, incidentDate: v }))
-                }
+                onChange={(v) => setForm((f) => ({ ...f, incidentDate: v }))}
               />
               <EditField
                 id="incidentLocation"
@@ -244,9 +244,7 @@ export function ReviewView({ sessionId }: { sessionId: string }) {
                 label="Item category"
                 placeholder="e.g. laptop, bicycle, phone"
                 value={form.productCategory}
-                onChange={(v) =>
-                  setForm((f) => ({ ...f, productCategory: v }))
-                }
+                onChange={(v) => setForm((f) => ({ ...f, productCategory: v }))}
               />
               <EditField
                 id="productBrandModel"
@@ -258,7 +256,10 @@ export function ReviewView({ sessionId }: { sessionId: string }) {
                 }
               />
               <div className="space-y-1.5">
-                <Label htmlFor="damageSummary" className="text-xs uppercase tracking-wide text-muted-foreground">
+                <Label
+                  htmlFor="damageSummary"
+                  className="text-xs uppercase tracking-wide text-muted-foreground"
+                >
                   What happened
                 </Label>
                 <Textarea
@@ -324,10 +325,7 @@ export function ReviewView({ sessionId }: { sessionId: string }) {
                     value={claim?.incidentType}
                   />
                   <DetailRow label="When" value={claim?.incidentDate} />
-                  <DetailRow
-                    label="Where"
-                    value={claim?.incidentLocation}
-                  />
+                  <DetailRow label="Where" value={claim?.incidentLocation} />
                   <DetailRow
                     label="Item"
                     value={joinNonEmpty(
@@ -352,23 +350,24 @@ export function ReviewView({ sessionId }: { sessionId: string }) {
             </Card>
 
             {/* Matched policy */}
-            {claim?.matchedPolicyType && (() => {
-              const tpl = getPolicyTemplate(claim.matchedPolicyType);
-              if (!tpl) return null;
-              return (
-                <Card className="mb-4">
-                  <CardContent className="py-4 px-4 flex items-center gap-4">
-                    <div className="text-4xl leading-none">{tpl.emoji}</div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                        Matched policy
-                      </p>
-                      <p className="font-semibold truncate">{tpl.title}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })()}
+            {claim?.matchedPolicyType &&
+              (() => {
+                const tpl = getPolicyTemplate(claim.matchedPolicyType);
+                if (!tpl) return null;
+                return (
+                  <Card className="mb-4">
+                    <CardContent className="py-4 px-4 flex items-center gap-4">
+                      <div className="text-4xl leading-none">{tpl.emoji}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                          Matched policy
+                        </p>
+                        <p className="font-semibold truncate">{tpl.title}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
 
             {/* Payout estimate */}
             <Card className="mb-6">
@@ -397,7 +396,9 @@ export function ReviewView({ sessionId }: { sessionId: string }) {
                       {claim.retailPriceEur != null && (
                         <div className="flex justify-between py-1.5 text-muted-foreground">
                           <span>Retail (Tavily)</span>
-                          <span>~{claim.retailPriceEur.toLocaleString("de-DE")} €</span>
+                          <span>
+                            ~{claim.retailPriceEur.toLocaleString("de-DE")} €
+                          </span>
                         </div>
                       )}
                       {depreciationPct > 0 && (
@@ -409,7 +410,9 @@ export function ReviewView({ sessionId }: { sessionId: string }) {
                       {deductibleEur > 0 && (
                         <div className="flex justify-between py-1.5 text-muted-foreground">
                           <span>Deductible</span>
-                          <span>−{deductibleEur.toLocaleString("de-DE")} €</span>
+                          <span>
+                            −{deductibleEur.toLocaleString("de-DE")} €
+                          </span>
                         </div>
                       )}
                     </div>
@@ -438,8 +441,8 @@ export function ReviewView({ sessionId }: { sessionId: string }) {
                       {isSubmitted
                         ? "Files attached to your claim."
                         : storedUploads.length > 0
-                        ? "Lina asked for these to finish your claim."
-                        : "Lina didn't request specific documents. Attach anything that supports your claim."}
+                          ? "Lina asked for these to finish your claim."
+                          : "Lina didn't request specific documents. Attach anything that supports your claim."}
                     </p>
                     <div className="divide-y divide-border/50">
                       {visibleUploads.map((item) => {
@@ -454,14 +457,34 @@ export function ReviewView({ sessionId }: { sessionId: string }) {
                             <p className="text-sm font-medium mb-2">{label}</p>
                             {uploaded ? (
                               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
-                                <svg className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                <svg
+                                  className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                  strokeWidth={2}
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                  />
                                 </svg>
                                 <span className="text-xs text-green-800 dark:text-green-300 truncate flex-1">
                                   {fileNames[item.id] ?? "File received"}
                                 </span>
-                                <svg className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                <svg
+                                  className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                  strokeWidth={2.5}
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M5 13l4 4L19 7"
+                                  />
                                 </svg>
                               </div>
                             ) : (
@@ -476,11 +499,23 @@ export function ReviewView({ sessionId }: { sessionId: string }) {
                                   }}
                                 />
                                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border hover:border-primary/50 hover:bg-muted/40 transition-colors">
-                                  <svg className="w-4 h-4 text-muted-foreground shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                  <svg
+                                    className="w-4 h-4 text-muted-foreground shrink-0"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    strokeWidth={2}
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                                    />
                                   </svg>
                                   <span className="text-xs text-muted-foreground">
-                                    {busy ? "Uploading…" : "Choose file to upload"}
+                                    {busy
+                                      ? "Uploading…"
+                                      : "Choose file to upload"}
                                   </span>
                                 </div>
                               </label>
@@ -509,7 +544,7 @@ export function ReviewView({ sessionId }: { sessionId: string }) {
               <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => router.push("/dashboard")}
+                onClick={() => router.push("/axa")}
               >
                 Back to dashboard
               </Button>
@@ -521,13 +556,7 @@ export function ReviewView({ sessionId }: { sessionId: string }) {
   );
 }
 
-function DetailRow({
-  label,
-  value,
-}: {
-  label: string;
-  value?: string | null;
-}) {
+function DetailRow({ label, value }: { label: string; value?: string | null }) {
   return (
     <div>
       <p className="text-xs text-muted-foreground uppercase tracking-wide">

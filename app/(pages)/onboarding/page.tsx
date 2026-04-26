@@ -29,7 +29,7 @@ export default function OnboardingPage() {
     try {
       await updatePolicyTypes({ policyTypes: [...selected] });
       await completeOnboarding();
-      router.push("/dashboard");
+      router.push("/axa");
     } finally {
       setLoading(false);
     }
@@ -60,7 +60,9 @@ export default function OnboardingPage() {
                   <span className="text-3xl">{emoji}</span>
                   <div className="flex-1">
                     <p className="font-semibold">{title}</p>
-                    <p className="text-xs text-muted-foreground">{description}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {description}
+                    </p>
                   </div>
                   <div
                     className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
@@ -74,7 +76,12 @@ export default function OnboardingPage() {
                         viewBox="0 0 12 12"
                         className="w-3 h-3 text-white fill-white"
                       >
-                        <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth={2} fill="none" />
+                        <path
+                          d="M2 6l3 3 5-5"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                          fill="none"
+                        />
                       </svg>
                     )}
                   </div>
@@ -91,10 +98,13 @@ export default function OnboardingPage() {
             onClick={handleDone}
             disabled={loading || selected.size === 0}
           >
-            {loading ? "Setting up…" : `Add ${selected.size} plan${selected.size === 1 ? "" : "s"}`}
+            {loading
+              ? "Setting up…"
+              : `Add ${selected.size} plan${selected.size === 1 ? "" : "s"}`}
           </Button>
           <p className="text-xs text-center text-muted-foreground">
-            Sample plans from HUK24, Allianz, DEVK, and Petolo are pre-loaded for demo.
+            Sample plans from HUK24, Allianz, DEVK, and Petolo are pre-loaded
+            for demo.
           </p>
         </div>
       </div>

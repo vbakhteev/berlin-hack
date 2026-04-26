@@ -12,7 +12,13 @@ import { useToolBridge } from "@/components/call/use-tool-bridge";
 import { buildSystemPrompt } from "@/lib/agent/system-prompt";
 import { Button } from "@/components/ui/button";
 
-export function CallView({ sessionId, onCallConcluded }: { sessionId: string; onCallConcluded?: () => void }) {
+export function CallView({
+  sessionId,
+  onCallConcluded,
+}: {
+  sessionId: string;
+  onCallConcluded?: () => void;
+}) {
   const router = useRouter();
 
   const claim = useQuery(api.claims.bySession, { sessionId });
@@ -29,7 +35,10 @@ export function CallView({ sessionId, onCallConcluded }: { sessionId: string; on
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [callSeconds, setCallSeconds] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const ambientRef = useRef<{ ctx: AudioContext; source: AudioBufferSourceNode } | null>(null);
+  const ambientRef = useRef<{
+    ctx: AudioContext;
+    source: AudioBufferSourceNode;
+  } | null>(null);
   const [gpsCoords, setGpsCoords] = useState<GeolocationCoordinates | null>(
     null
   );
@@ -77,8 +86,9 @@ export function CallView({ sessionId, onCallConcluded }: { sessionId: string; on
     const buf = ctx.createBuffer(1, len, rate);
     const data = buf.getChannelData(0);
     for (let i = 0; i < len; i++) {
-      const hum = Math.sin(2 * Math.PI * 60 * (i / rate)) * 0.007
-               + Math.sin(2 * Math.PI * 120 * (i / rate)) * 0.003;
+      const hum =
+        Math.sin(2 * Math.PI * 60 * (i / rate)) * 0.007 +
+        Math.sin(2 * Math.PI * 120 * (i / rate)) * 0.003;
       data[i] = hum + (Math.random() * 2 - 1) * 0.005;
     }
     const fade = Math.min(400, len / 4);
@@ -102,7 +112,9 @@ export function CallView({ sessionId, onCallConcluded }: { sessionId: string; on
   }, []);
 
   const stopAmbient = useCallback(() => {
-    try { ambientRef.current?.source.stop(); } catch {}
+    try {
+      ambientRef.current?.source.stop();
+    } catch {}
     ambientRef.current?.ctx.close().catch(() => {});
     ambientRef.current = null;
   }, []);
@@ -169,7 +181,10 @@ export function CallView({ sessionId, onCallConcluded }: { sessionId: string; on
         if (s === "connected") {
           setHasConnected(true);
           setCallSeconds(0);
-          timerRef.current = setInterval(() => setCallSeconds((n) => n + 1), 1000);
+          timerRef.current = setInterval(
+            () => setCallSeconds((n) => n + 1),
+            1000
+          );
           startAmbient();
         }
         if (s === "ended" || s === "error") {
@@ -187,7 +202,12 @@ export function CallView({ sessionId, onCallConcluded }: { sessionId: string; on
     });
 
   // Stop ambient on unmount (e.g. navigation away mid-call)
-  useEffect(() => () => { stopAmbient(); }, [stopAmbient]);
+  useEffect(
+    () => () => {
+      stopAmbient();
+    },
+    [stopAmbient]
+  );
 
   // Auto-connect removed — iOS Safari requires getUserMedia to be triggered
   // by a direct user gesture. connect() is called from the "Start call" button.
@@ -208,7 +228,7 @@ export function CallView({ sessionId, onCallConcluded }: { sessionId: string; on
       await endCallMutation({ claimId: claim._id }).catch(console.error);
       // page.tsx reacts to status change via Convex real-time query
     } else {
-      router.push("/dashboard");
+      router.push("/axa");
     }
   };
 

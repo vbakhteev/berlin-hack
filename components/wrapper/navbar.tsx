@@ -19,7 +19,7 @@ export default function NavBar() {
           <Link href="/" prefetch={true}>
             <Button variant="ghost">Home</Button>
           </Link>
-          <Link href="/dashboard" prefetch={true}>
+          <Link href="/axa" prefetch={true}>
             <Button variant="ghost">Dashboard</Button>
           </Link>
         </div>
