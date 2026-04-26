@@ -72,6 +72,7 @@ export const create = mutation({
       status: "call",
       stage: "greeting",
       visualInspectionRequested: false,
+      visualInspectionCompleted: false,
       createdAt: new Date().toISOString(),
       events: [],
       media: [],
@@ -132,6 +133,18 @@ export const submit = mutation({
   handler: async (ctx, { claimId }) => {
     await ctx.db.patch(claimId, { status: "in_review" });
     return { ok: true };
+  },
+});
+
+export const markVisualInspectionDone = mutation({
+  args: { sessionId: v.string() },
+  handler: async (ctx, { sessionId }) => {
+    const claim = await ctx.db
+      .query("claims")
+      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
+      .unique();
+    if (!claim) return;
+    await ctx.db.patch(claim._id, { visualInspectionCompleted: true });
   },
 });
 

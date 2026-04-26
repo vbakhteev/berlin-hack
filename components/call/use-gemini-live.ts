@@ -273,10 +273,21 @@ export function useGeminiLive({
             onTranscript?.(sc.inputTranscription.text, "user");
           if (sc.outputTranscription?.text)
             onTranscript?.(sc.outputTranscription.text, "model");
+          // End-of-turn signal — only now is it safe to unmute the mic and
+          // re-enable VAD. Without this, transient queue drains during a
+          // single turn would fire onPlaybackEnd mid-utterance, unmute the
+          // mic, and feed Lina's own audio (post-imperfect-echo-cancel) back
+          // through manual VAD as bogus activityStart/End events.
+          if (sc.turnComplete || sc.generationComplete || sc.interrupted) {
+            audioPlayerRef.current?.markTurnComplete();
+          }
         }
 
         // Tool calls from model
         if (data.toolCall?.functionCalls) {
+          // The audio turn is implicitly over once the model invokes a tool —
+          // unblock onPlaybackEnd in case turnComplete won't arrive separately.
+          audioPlayerRef.current?.markTurnComplete();
           for (const fc of data.toolCall.functionCalls) {
             const call: ToolCallPayload = {
               id: fc.id,
@@ -379,7 +390,7 @@ export function useGeminiLive({
   );
 
   const startVideo = useCallback(
-    async (videoEl: HTMLVideoElement) => {
+    async (videoEl: HTMLVideoElement, fps: number = 1) => {
       if (videoPipelineRef.current) return;
       const pipeline = new VideoPipeline();
       videoPipelineRef.current = pipeline;
@@ -392,7 +403,7 @@ export function useGeminiLive({
             },
           });
         },
-        1
+        fps
       );
       setIsVideoActive(true);
     },
@@ -426,6 +437,7 @@ export function useGeminiLive({
     audioPlayerRef.current = null;
     videoPipelineRef.current = null;
     wsRef.current = null;
+    setIsVideoActive(false);
   }
 
   // Keep connectRef pointing at the latest version of connect so ws.onclose

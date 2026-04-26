@@ -33,6 +33,7 @@ export default defineSchema({
       v.literal("closed")
     ),
     visualInspectionRequested: v.boolean(),
+    visualInspectionCompleted: v.optional(v.boolean()),
     visualInspectionRequestedBy: v.optional(
       v.union(
         v.literal("policy_required"),

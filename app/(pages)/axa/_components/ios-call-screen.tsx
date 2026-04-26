@@ -11,6 +11,7 @@ import { MOCK_CUSTOMER } from "@/lib/axa/mock-customer";
 import {
   Volume2,
   Video,
+  VideoOff,
   Mic,
   MicOff,
   Grid3x3,
@@ -20,6 +21,11 @@ import {
 
 // AXA demo always uses Max Müller's policies — never the real user's profile
 const AXA_DEMO_POLICY_TYPES = ["electronics", "haftpflicht", "hausrat"];
+
+// Inspection capture cadence. Gemini Live's wire format for video is JPEG frames
+// (no video/* mime support on realtimeInput), so 3fps is a practical sweet spot
+// between visual fidelity for the agent and token cost. Default is 1fps elsewhere.
+const INSPECTION_FPS = 3;
 
 // Time (ms) after successful finalize_claim before we auto-hang-up.
 // Gives the agent enough time for the 48h closing speech + "Auf Wiederhören."
@@ -39,6 +45,9 @@ export function IosCallScreen({ sessionId }: { sessionId: string }) {
   const claim = useQuery(api.claims.bySession, { sessionId });
   const currentUser = useQuery(api.users.currentUser);
   const endCallMutation = useMutation(api.claims.endCall);
+  const markVisualInspectionDone = useMutation(
+    api.claims.markVisualInspectionDone
+  );
 
   const { handleToolCall } = useToolBridge(sessionId);
 
@@ -46,8 +55,14 @@ export function IosCallScreen({ sessionId }: { sessionId: string }) {
   const [seconds, setSeconds] = useState(0);
   const [muted, setMuted] = useState(false);
   const [speakerOn, setSpeakerOn] = useState(true);
+  // Optimistic flip the moment the agent calls request_visual_inspection,
+  // before the Convex round-trip flips claim.visualInspectionRequested.
+  const [optimisticInspectionRequested, setOptimisticInspectionRequested] =
+    useState(false);
+  const [inspectionHint, setInspectionHint] = useState<string | undefined>();
 
   const transcriptRef = useRef<string[]>([]);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const finalizedRef = useRef(false);
@@ -74,6 +89,12 @@ export function IosCallScreen({ sessionId }: { sessionId: string }) {
       name: string;
       args: Record<string, unknown>;
     }) => {
+      // Activate the pulsing video button optimistically — the Convex flag
+      // (claim.visualInspectionRequested) takes a round-trip to flip.
+      if (call.name === "request_visual_inspection") {
+        setOptimisticInspectionRequested(true);
+        if (call.args.hint) setInspectionHint(call.args.hint as string);
+      }
       if (call.name === "finalize_claim") {
         call.args.transcriptText = transcriptRef.current.join("\n");
       }
@@ -105,7 +126,8 @@ export function IosCallScreen({ sessionId }: { sessionId: string }) {
 
   const userLanguage = (currentUser?.language ?? "de") as "de" | "en";
 
-  const { state, connect, disconnect } = useGeminiLive({
+  const { state, isVideoActive, connect, disconnect, startVideo, stopVideo } =
+    useGeminiLive({
     systemPrompt: currentUser
       ? buildSystemPrompt({
           name: MOCK_CUSTOMER.fullName,
@@ -170,6 +192,12 @@ export function IosCallScreen({ sessionId }: { sessionId: string }) {
       clearTimeout(autoEndTimerRef.current);
       autoEndTimerRef.current = null;
     }
+    // Release the camera before tearing down the WS so the MediaRecorder
+    // closes cleanly. Do NOT mark inspection completed here — call ending
+    // is not the same as the user finishing the inspection.
+    if (isVideoActive) {
+      await stopVideo().catch(console.error);
+    }
     disconnect();
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -183,6 +211,43 @@ export function IosCallScreen({ sessionId }: { sessionId: string }) {
       goToSummary();
     } else {
       router.push("/axa");
+    }
+  };
+
+  // Inspection state machine:
+  //   button hidden               (no request yet, or already completed)
+  //        │ agent: request_visual_inspection
+  //        ▼
+  //   PULSING green button (animate-ping)
+  //        │ user taps
+  //        ▼
+  //   ┌─────────────────────────────┐
+  //   │ getUserMedia → camera ON    │
+  //   │ frames @ INSPECTION_FPS → AI│
+  //   │ button = solid red (stop)   │
+  //   └─────────────────────────────┘
+  //        │ user taps stop
+  //        ▼
+  //   stopVideo() + markVisualInspectionDone() → button hides for rest of call
+  const inspectionRequested =
+    optimisticInspectionRequested || claim?.visualInspectionRequested;
+  const inspectionCompleted = claim?.visualInspectionCompleted ?? false;
+  const showInspectionButton =
+    inspectionRequested && !inspectionCompleted && state === "connected";
+
+  const handleVideoToggle = async () => {
+    if (isVideoActive) {
+      await stopVideo().catch(console.error);
+      await markVisualInspectionDone({ sessionId }).catch(console.error);
+      return;
+    }
+    if (!videoRef.current) return;
+    try {
+      await startVideo(videoRef.current, INSPECTION_FPS);
+    } catch (e) {
+      // Permission denied / camera busy — leave the button in pulse mode so
+      // the user can retry. Surface the error to the console for debugging.
+      console.error("[IosCallScreen] startVideo failed:", e);
     }
   };
 
@@ -202,32 +267,63 @@ export function IosCallScreen({ sessionId }: { sessionId: string }) {
       className="fixed inset-0 flex flex-col select-none"
       style={{ backgroundColor: "#1C1C1E" }}
     >
+      {/* Full-screen camera preview behind iOS controls. Always mounted so
+          startVideo has a stable element ref; hidden via CSS when not active. */}
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted
+        className={`absolute inset-0 w-full h-full object-cover ${
+          isVideoActive ? "z-0" : "hidden"
+        }`}
+      />
+      {/* Subtle dark gradient over the camera so iOS chrome stays legible */}
+      {isVideoActive && (
+        <div className="absolute inset-0 z-0 bg-gradient-to-b from-black/40 via-transparent to-black/60" />
+      )}
+
       {/* Status bar area */}
-      <div className="h-14" />
+      <div className="relative z-10 h-14" />
 
-      {/* Contact info */}
-      <div className="flex-1 flex flex-col items-center px-8 pt-8">
-        <div className="w-24 h-24 rounded-full bg-[#3A3A3C] flex items-center justify-center mb-6">
-          <span className="text-white text-4xl font-light select-none">A</span>
+      {/* Contact info — hidden once camera is live (FaceTime-style takeover) */}
+      {!isVideoActive && (
+        <div className="relative z-10 flex-1 flex flex-col items-center px-8 pt-8">
+          <div className="w-24 h-24 rounded-full bg-[#3A3A3C] flex items-center justify-center mb-6">
+            <span className="text-white text-4xl font-light select-none">
+              A
+            </span>
+          </div>
+
+          <p className="text-white text-[28px] font-light tracking-tight text-center">
+            AXA Kundenservice
+          </p>
+          <p className="text-[#8E8E93] text-[15px] mt-1 text-center">
+            (Inka) powered by AXA
+          </p>
+          <p
+            className={`text-[17px] mt-6 tabular-nums font-light ${
+              state === "error" ? "text-[#FF453A]" : "text-[#8E8E93]"
+            }`}
+          >
+            {statusLine}
+          </p>
         </div>
+      )}
+      {isVideoActive && <div className="relative z-10 flex-1" />}
 
-        <p className="text-white text-[28px] font-light tracking-tight text-center">
-          AXA Kundenservice
-        </p>
-        <p className="text-[#8E8E93] text-[15px] mt-1 text-center">
-          (Inka) powered by AXA
-        </p>
-        <p
-          className={`text-[17px] mt-6 tabular-nums font-light ${
-            state === "error" ? "text-[#FF453A]" : "text-[#8E8E93]"
-          }`}
-        >
-          {statusLine}
-        </p>
-      </div>
+      {/* Inspection hint — shown only while the button is pulsing */}
+      {showInspectionButton && !isVideoActive && (
+        <div className="relative z-10 flex justify-center pb-4 px-6">
+          <p className="text-white/90 text-[13px] text-center max-w-xs">
+            {inspectionHint ??
+              "Tippen Sie auf das Kamera-Symbol, um den Schaden zu zeigen."}
+          </p>
+        </div>
+      )}
 
       {/* Top action buttons */}
-      <div className="flex justify-center gap-10 pb-10">
+      <div className="relative z-10 flex justify-center gap-10 pb-10">
         <IosTopButton
           label="Lautsprecher"
           active={speakerOn}
@@ -236,9 +332,24 @@ export function IosCallScreen({ sessionId }: { sessionId: string }) {
           <Volume2 className="w-6 h-6" strokeWidth={1.8} />
         </IosTopButton>
 
-        <IosTopButton label="FaceTime" disabled>
-          <Video className="w-6 h-6" strokeWidth={1.8} />
-        </IosTopButton>
+        {showInspectionButton ? (
+          <IosTopButton
+            label={isVideoActive ? "Kamera aus" : "Kamera"}
+            active={isVideoActive}
+            pulse={!isVideoActive}
+            onClick={handleVideoToggle}
+          >
+            {isVideoActive ? (
+              <VideoOff className="w-6 h-6" strokeWidth={1.8} />
+            ) : (
+              <Video className="w-6 h-6" strokeWidth={1.8} />
+            )}
+          </IosTopButton>
+        ) : (
+          <IosTopButton label="FaceTime" disabled>
+            <Video className="w-6 h-6" strokeWidth={1.8} />
+          </IosTopButton>
+        )}
 
         <IosTopButton
           label="Stumm"
@@ -255,7 +366,7 @@ export function IosCallScreen({ sessionId }: { sessionId: string }) {
 
       {/* Bottom row */}
       <div
-        className="flex justify-around items-center px-8"
+        className="relative z-10 flex justify-around items-center px-8"
         style={{
           paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 32px)",
         }}
@@ -285,25 +396,32 @@ function IosTopButton({
   children,
   active,
   disabled,
+  pulse,
   onClick,
 }: {
   label: string;
   children: React.ReactNode;
   active?: boolean;
   disabled?: boolean;
+  pulse?: boolean;
   onClick?: () => void;
 }) {
   return (
     <div className="flex flex-col items-center gap-2">
-      <button
-        onClick={onClick}
-        disabled={disabled}
-        className={`w-[72px] h-[72px] rounded-full flex items-center justify-center transition-colors
-          ${active ? "bg-white text-[#1C1C1E]" : "bg-[#2C2C2E] text-white"}
-          ${disabled ? "opacity-35 cursor-not-allowed" : "active:brightness-75"}`}
-      >
-        {children}
-      </button>
+      <div className="relative">
+        {pulse && (
+          <div className="absolute -inset-1 rounded-full bg-[#34C759]/60 animate-ping" />
+        )}
+        <button
+          onClick={onClick}
+          disabled={disabled}
+          className={`relative w-[72px] h-[72px] rounded-full flex items-center justify-center transition-colors
+            ${pulse ? "bg-[#34C759] text-white shadow-[0_0_24px_rgba(52,199,89,0.55)]" : active ? "bg-white text-[#1C1C1E]" : "bg-[#2C2C2E] text-white"}
+            ${disabled ? "opacity-35 cursor-not-allowed" : "active:brightness-75"}`}
+        >
+          {children}
+        </button>
+      </div>
       <span className="text-[11px] text-[#8E8E93]">{label}</span>
     </div>
   );
