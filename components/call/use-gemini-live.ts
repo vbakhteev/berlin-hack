@@ -13,8 +13,16 @@ export type ToolCallPayload = {
   args: Record<string, unknown>;
 };
 
+// Locked voices per language — change only in a dedicated voice-review session, not during bug fixes.
+// Research: Charon ("deep, informational, steady") works for both DE and EN via Gemini's native code-switching.
+export const LINA_VOICES = {
+  de: "Charon",
+  en: "Charon",
+} as const;
+
 type UseGeminiLiveOptions = {
   systemPrompt: string;
+  voiceName?: string;
   onToolCall: (call: ToolCallPayload) => Promise<unknown>;
   onTranscript?: (text: string, role: "user" | "model") => void;
   onStateChange?: (state: GeminiLiveState) => void;
@@ -23,8 +31,19 @@ type UseGeminiLiveOptions = {
 const GEMINI_WS_URL =
   "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
 
+// 200ms of PCM16 silence at 16kHz — used to open the first user turn
+// so Gemini generates the proactive greeting.
+function makeSilenceB64(ms: number): string {
+  const bytes = new Uint8Array(Math.floor(16000 * ms / 1000) * 2); // zeros
+  let s = "";
+  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+  return btoa(s);
+}
+const SILENCE_200MS = makeSilenceB64(200);
+
 export function useGeminiLive({
   systemPrompt,
+  voiceName = "Charon",
   onToolCall,
   onTranscript,
   onStateChange,
@@ -59,7 +78,6 @@ export function useGeminiLive({
 
   const sendToolResponse = useCallback(
     (id: string, name: string, result: unknown) => {
-      // camelCase throughout — Gemini Live REST/WS API uses camelCase JSON
       sendMessage({
         toolResponse: {
           functionResponses: [{ id, name, response: { result } }],
@@ -82,18 +100,7 @@ export function useGeminiLive({
       player.init();
       audioPlayerRef.current = player;
 
-      // Half-duplex mute: silence mic while Lina is speaking to prevent echo
-      player.onPlaybackStart = () => {
-        isMutedRef.current = true;
-      };
-      player.onPlaybackEnd = () => {
-        isMutedRef.current = false;
-      };
-
       ws.onopen = () => {
-        // Available models for this key (verified via ListModels):
-        //   gemini-3.1-flash-live-preview
-        //   gemini-2.5-flash-native-audio-latest
         sendMessage({
           setup: {
             model: "models/gemini-3.1-flash-live-preview",
@@ -101,7 +108,7 @@ export function useGeminiLive({
               responseModalities: ["AUDIO"],
               speechConfig: {
                 voiceConfig: {
-                  prebuiltVoiceConfig: { voiceName: "Kore" },
+                  prebuiltVoiceConfig: { voiceName },
                 },
               },
             },
@@ -109,6 +116,11 @@ export function useGeminiLive({
               parts: [{ text: systemPrompt }],
             },
             tools: [{ functionDeclarations: toolSchemas }],
+            // Manual VAD — auto-VAD ignores proactive activityEnd triggers.
+            // We implement RMS-based VAD in the mic callback instead.
+            realtimeInputConfig: {
+              automaticActivityDetection: { disabled: true },
+            },
             inputAudioTranscription: {},
             outputAudioTranscription: {},
           },
@@ -127,20 +139,73 @@ export function useGeminiLive({
 
         console.debug("[GeminiLive]", JSON.stringify(data).slice(0, 200));
 
-        // Setup handshake complete → play dial tone, start mic, then trigger greeting
         if (data.setupComplete !== undefined) {
           updateState("connected");
           audioPlayerRef.current?.playDialToneAndCrackle();
+
+          // VAD state — shared between mic callback and Lina's playback handlers.
+          // enabled starts false: ambient noise must not re-trigger greetings before
+          // Lina has spoken. Set to true only after her first turn finishes.
+          const vad = {
+            active: false,
+            enabled: false,
+            timer: null as ReturnType<typeof setTimeout> | null,
+          };
+
+          // Half-duplex: mute mic while Lina speaks, flush pending user turn if any
+          player.onPlaybackStart = () => {
+            isMutedRef.current = true;
+            if (vad.active) {
+              if (vad.timer) { clearTimeout(vad.timer); vad.timer = null; }
+              vad.active = false;
+              sendMessage({ realtimeInput: { activityEnd: {} } });
+            }
+          };
+          player.onPlaybackEnd = () => {
+            isMutedRef.current = false;
+            vad.enabled = true; // greeting done — start listening to the caller
+          };
+
           const pipe = new AudioPipeline();
           audioPipelineRef.current = pipe;
+
           try {
             await pipe.start((base64) => {
-              if (!isMutedRef.current) {
-                sendMessage({
-                  realtimeInput: {
-                    audio: { mimeType: "audio/pcm;rate=16000", data: base64 },
-                  },
-                });
+              if (isMutedRef.current) return;
+
+              sendMessage({
+                realtimeInput: {
+                  audio: { mimeType: "audio/pcm;rate=16000", data: base64 },
+                },
+              });
+
+              // RMS-based VAD — detect speech onset and offset
+              const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+              const pcm = new Int16Array(bytes.buffer);
+              let sumSq = 0;
+              for (let i = 0; i < pcm.length; i++) {
+                sumSq += (pcm[i] / 32768) ** 2;
+              }
+              const rms = Math.sqrt(sumSq / pcm.length);
+
+              if (!vad.enabled) return; // don't trigger turns during greeting sequence
+
+              if (rms > 0.02) {
+                // Speech detected
+                if (!vad.active) {
+                  vad.active = true;
+                  sendMessage({ realtimeInput: { activityStart: {} } });
+                }
+                if (vad.timer) { clearTimeout(vad.timer); vad.timer = null; }
+              } else if (vad.active && !vad.timer) {
+                // Silence after speech — 300ms is enough to distinguish end-of-turn
+                // from a natural mid-sentence pause. Gemini processing adds another
+                // 500-1500ms so the total felt latency stays conversational.
+                vad.timer = setTimeout(() => {
+                  vad.active = false;
+                  vad.timer = null;
+                  sendMessage({ realtimeInput: { activityEnd: {} } });
+                }, 300);
               }
             });
           } catch (e) {
@@ -148,15 +213,20 @@ export function useGeminiLive({
             updateState("error");
             return;
           }
-          // Trigger Lina's proactive greeting AFTER mic is ready.
-          // Empty string is ignored by Gemini — "." is the minimal valid turn signal.
-          // Audio will be queued and firstResponseNotBefore holds it until after ringing.
-          sendMessage({
-            clientContent: {
-              turns: [{ role: "user", parts: [{ text: "." }] }],
-              turnComplete: true,
-            },
-          });
+
+          // Proactive greeting trigger: simulate caller picking up but not speaking.
+          // activityStart → 200ms silence → activityEnd → Gemini greets.
+          // 250ms delay lets the server register the audio stream first.
+          // firstResponseNotBefore (set in playDialToneAndCrackle) holds playback
+          // until ~600ms after the pickup click (~10s), so Lina speaks right on pickup.
+          setTimeout(() => {
+            sendMessage({ realtimeInput: { activityStart: {} } });
+            sendMessage({ realtimeInput: { audio: { mimeType: "audio/pcm;rate=16000", data: SILENCE_200MS } } });
+            setTimeout(() => {
+              sendMessage({ realtimeInput: { activityEnd: {} } });
+            }, 300);
+          }, 250);
+
           return;
         }
 
@@ -178,7 +248,6 @@ export function useGeminiLive({
 
         // Tool calls from model
         if (data.toolCall?.functionCalls) {
-          audioPlayerRef.current?.playTypingBurst(2000);
           for (const fc of data.toolCall.functionCalls) {
             const call: ToolCallPayload = {
               id: fc.id,
@@ -196,8 +265,17 @@ export function useGeminiLive({
         }
 
         if (data.goAway) {
-          doCleanup();
-          updateState("ended");
+          console.warn("[GeminiLive] goAway received", JSON.stringify(data.goAway));
+          // Drain audio buffer before tearing down — Lina may still be mid-sentence
+          const drainThenCleanup = () => {
+            if (audioPlayerRef.current?.isBusy) {
+              setTimeout(drainThenCleanup, 150);
+            } else {
+              doCleanup();
+              updateState("ended");
+            }
+          };
+          drainThenCleanup();
         }
       };
 
@@ -207,7 +285,7 @@ export function useGeminiLive({
       };
 
       ws.onclose = (e) => {
-        console.warn("[GeminiLive] ws closed", e.code, e.reason);
+        console.warn("[GeminiLive] ws closed", { code: e.code, reason: e.reason, wasClean: e.wasClean, intentional: intentionalCloseRef.current });
         if (!intentionalCloseRef.current && stateRef.current !== "ended") {
           updateState("ended");
         }
@@ -220,7 +298,6 @@ export function useGeminiLive({
 
   const startVideo = useCallback(
     async (videoEl: HTMLVideoElement) => {
-      // Guard against concurrent starts (React strict-mode fires the effect twice)
       if (videoPipelineRef.current) return;
       const pipeline = new VideoPipeline();
       videoPipelineRef.current = pipeline;
@@ -268,7 +345,6 @@ export function useGeminiLive({
     wsRef.current = null;
   }
 
-  // Cleanup on unmount — intentionalCloseRef prevents onclose from updating state
   useEffect(() => {
     return () => doCleanup();
   }, []);

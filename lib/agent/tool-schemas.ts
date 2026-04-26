@@ -54,6 +54,7 @@ export const toolSchemas = [
         incidentLocation: { type: "string" },
         productCategory: { type: "string", description: "e.g. laptop, phone" },
         productBrandModel: { type: "string", description: "e.g. MacBook Pro 14 M3 2023" },
+        purchaseDate: { type: "string", description: "When the item was purchased — even approximate, e.g. 'early 2023' or '2022'" },
         damageSummary: { type: "string", description: "Brief description of the damage" },
         estimatedDamageEur: { type: "number", description: "Caller's stated damage estimate in EUR" },
         callerEmail: { type: "string" },
@@ -100,6 +101,30 @@ export const toolSchemas = [
           type: "string",
           description: "Email address to send the form link to",
         },
+        incidentType: {
+          type: "string",
+          description: "Confirmed incident type, e.g. 'electronics_damage', 'bike_theft'",
+        },
+        incidentDate: {
+          type: "string",
+          description: "When the incident happened — even approximate, e.g. '2024-01-15' or 'early January 2024'",
+        },
+        incidentLocation: {
+          type: "string",
+          description: "Where the incident happened, e.g. 'at home', 'Berlin Mitte'",
+        },
+        productBrandModel: {
+          type: "string",
+          description: "Brand and model of the affected item, e.g. 'Apple MacBook Pro 14'",
+        },
+        purchaseDate: {
+          type: "string",
+          description: "When the item was purchased — even approximate",
+        },
+        purchasePriceEur: {
+          type: "number",
+          description: "Original purchase price in EUR — even approximate",
+        },
         requiredUploads: {
           type: "array",
           description:
@@ -129,7 +154,16 @@ export const toolSchemas = [
           },
         },
       },
-      required: ["summary", "callerEmail"],
+      required: [
+        "summary",
+        "callerEmail",
+        "incidentType",
+        "incidentDate",
+        "incidentLocation",
+        "productBrandModel",
+        "purchaseDate",
+        "purchasePriceEur",
+      ],
     },
   },
 ];

@@ -73,8 +73,13 @@ export class AudioPlayer {
   private responseStarted = false;
   private ambientSource: AudioBufferSourceNode | null = null;
   private firstResponseNotBefore = 0; // absolute ms timestamp — don't play before this
+  private isFirstResponse = true; // for handset-lift volume ramp on greeting
   public onPlaybackStart: (() => void) | null = null;
   public onPlaybackEnd: (() => void) | null = null;
+
+  get isBusy(): boolean {
+    return this.isPlaying || this.queue.length > 0;
+  }
 
   constructor(sampleRate = 24000) {
     this.sampleRate = sampleRate;
@@ -93,6 +98,8 @@ export class AudioPlayer {
     const float32 = new Float32Array(pcm16.length);
     for (let i = 0; i < pcm16.length; i++) {
       float32[i] = pcm16[i] / 32768;
+      // Barely-there noise floor — ~-54dB, just takes the edge off studio silence
+      float32[i] += (Math.random() * 2 - 1) * 0.0025;
     }
     const buffer = this.audioContext!.createBuffer(1, float32.length, this.sampleRate);
     buffer.copyToChannel(float32, 0);
@@ -110,42 +117,62 @@ export class AudioPlayer {
           // (200–400ms after crackle, like someone who just answered)
           delay = Math.max(0, notBefore - Date.now()) + 200 + Math.random() * 200;
         } else {
-          // Subsequent responses — bimodal: sometimes fast, sometimes slow, never uniform
-          // 30%: quick (150–400ms), 50%: normal (600–1400ms), 20%: long (2200–3800ms)
+          // Subsequent responses — keep it conversational, not robotic.
+          // Gemini already adds ~500-1500ms processing latency so our client
+          // delay stays small. 60%: near-instant (50-250ms), 40%: slight pause (300-600ms).
           const r = Math.random();
-          delay = r < 0.3
-            ? 150 + Math.random() * 250
-            : r < 0.8
-              ? 600 + Math.random() * 800
-              : 2200 + Math.random() * 1600;
+          delay = r < 0.6
+            ? 50 + Math.random() * 200
+            : 300 + Math.random() * 300;
         }
         setTimeout(() => this.playNext(), delay);
       }
     }
   }
 
-  // Phone EQ + VoIP compression chain — makes voice sound like a real call
+  // Cheap 10€ headset chain — narrow bandpass, mid harshness, soft distortion, heavy compression
   private buildProcessingChain(): AudioNode {
     const ctx = this.audioContext!;
 
+    // 20€ headset — slightly thin, mild hiss, no studio warmth. Still fully intelligible.
     const highpass = ctx.createBiquadFilter();
     highpass.type = "highpass";
-    highpass.frequency.value = 300;
+    highpass.frequency.value = 350;
     highpass.Q.value = 0.7;
 
     const lowpass = ctx.createBiquadFilter();
     lowpass.type = "lowpass";
-    lowpass.frequency.value = 3400;
+    lowpass.frequency.value = 3000;
     lowpass.Q.value = 0.7;
 
+    // Very subtle mid presence — just enough to sound slightly "plasticky"
+    const midHarsh = ctx.createBiquadFilter();
+    midHarsh.type = "peaking";
+    midHarsh.frequency.value = 2400;
+    midHarsh.gain.value = 1.2;
+    midHarsh.Q.value = 1.2;
+
+    // Very light soft-clip — barely noticeable, just takes the edge off perfection
+    const shaper = ctx.createWaveShaper();
+    const curve = new Float32Array(512);
+    const k = 12;
+    for (let i = 0; i < 512; i++) {
+      const x = (i * 2) / 512 - 1;
+      curve[i] = ((Math.PI + k) * x) / (Math.PI + k * Math.abs(x));
+    }
+    shaper.curve = curve;
+    shaper.oversample = "2x";
+
     const compressor = ctx.createDynamicsCompressor();
-    compressor.threshold.value = -24;
-    compressor.knee.value = 30;
+    compressor.threshold.value = -22;
+    compressor.knee.value = 28;
     compressor.ratio.value = 4;
     compressor.attack.value = 0.003;
-    compressor.release.value = 0.25;
+    compressor.release.value = 0.2;
 
-    highpass.connect(lowpass);
+    highpass.connect(midHarsh);
+    midHarsh.connect(shaper);
+    shaper.connect(lowpass);
     lowpass.connect(compressor);
     compressor.connect(ctx.destination);
 
@@ -165,7 +192,19 @@ export class AudioPlayer {
     const source = this.audioContext.createBufferSource();
     source.buffer = buffer;
     const inputNode = this.buildProcessingChain();
-    source.connect(inputNode);
+
+    // First response: simulate handset coming up to ear — 180ms ramp from quiet to full
+    if (this.isFirstResponse) {
+      this.isFirstResponse = false;
+      const gainNode = this.audioContext.createGain();
+      gainNode.gain.setValueAtTime(0.15, this.audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(1.0, this.audioContext.currentTime + 0.18);
+      source.connect(gainNode);
+      gainNode.connect(inputNode);
+    } else {
+      source.connect(inputNode);
+    }
+
     source.onended = () => this.playNext();
     source.start();
   }
@@ -202,26 +241,47 @@ export class AudioPlayer {
       src.start(t0 + offset);
     }
 
-    // Pickup click — modeled after a real handset relay:
-    // Phase 1 (0–6ms): sharp tonal click — mechanical relay closing
-    // Phase 2 (6–35ms): brief line-noise settling, fast exponential decay
-    const clickDuration = 0.035;
-    const clickSamples = Math.floor(rate * clickDuration);
-    const clickBuf = ctx.createBuffer(1, clickSamples, rate);
+    // Handset pickup — plastic housing lifted off cradle:
+    // Phase 1 (0–10ms):  initial plastic thud — low-mid impact ~350Hz, hard attack
+    // Phase 2 (10–45ms): body resonance — plastic flex, decaying oscillation ~280Hz
+    // Phase 3 (45–85ms): cradle settle — soft mechanical tail, very quiet
+    const pickupDuration = 0.085;
+    const pickupSamples = Math.floor(rate * pickupDuration);
+    const clickBuf = ctx.createBuffer(1, pickupSamples, rate);
     const clickData = clickBuf.getChannelData(0);
-    const impulseSamples = Math.floor(rate * 0.006);
-    for (let i = 0; i < clickSamples; i++) {
-      if (i < impulseSamples) {
-        const t = i / impulseSamples;
-        clickData[i] = 0.35 * (1 - t) * Math.sin(2 * Math.PI * 900 * (i / rate));
+    const p1End = Math.floor(rate * 0.010); // 10ms
+    const p2End = Math.floor(rate * 0.045); // 45ms
+    for (let i = 0; i < pickupSamples; i++) {
+      let v = 0;
+      if (i < p1End) {
+        // Phase 1: sharp low thud — fast attack, quick decay, 350Hz plastic body hit
+        const t = i / p1End;
+        const env = Math.pow(1 - t, 1.5);
+        v = 0.55 * env * Math.sin(2 * Math.PI * 350 * (i / rate));
+        // small crunch texture on top
+        v += 0.08 * env * (Math.random() * 2 - 1);
+      } else if (i < p2End) {
+        // Phase 2: plastic resonance — 280Hz body mode, slower exponential decay
+        const t = (i - p1End) / (p2End - p1End);
+        const env = Math.pow(1 - t, 2.2);
+        v = 0.18 * env * Math.sin(2 * Math.PI * 280 * (i / rate));
+        // slight 140Hz sub-harmonic for weight
+        v += 0.06 * env * Math.sin(2 * Math.PI * 140 * (i / rate));
       } else {
-        const t = (i - impulseSamples) / (clickSamples - impulseSamples);
-        clickData[i] = (Math.random() * 2 - 1) * 0.08 * Math.pow(1 - t, 2);
+        // Phase 3: soft settle — near silence, tiny random texture
+        const t = (i - p2End) / (pickupSamples - p2End);
+        v = 0.015 * Math.pow(1 - t, 3) * (Math.random() * 2 - 1);
       }
+      clickData[i] = v;
     }
     const clickSource = ctx.createBufferSource();
     clickSource.buffer = clickBuf;
-    clickSource.connect(ctx.destination);
+    // Low-pass to keep it warm/plastic, not bright/electrical
+    const pickupLp = ctx.createBiquadFilter();
+    pickupLp.type = "lowpass";
+    pickupLp.frequency.value = 800;
+    clickSource.connect(pickupLp);
+    pickupLp.connect(ctx.destination);
     clickSource.start(t0 + crackleOffset);
 
     // Block Lina's first word until 600ms after crackle — she "picks up" then speaks

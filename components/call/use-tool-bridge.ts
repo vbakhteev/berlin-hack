@@ -39,6 +39,7 @@ export function useToolBridge(sessionId: string) {
             incidentLocation: args.incidentLocation,
             productCategory: args.productCategory,
             productBrandModel: args.productBrandModel,
+            purchaseDate: args.purchaseDate,
             damageSummary: args.damageSummary,
             estimatedDamageEur: args.estimatedDamageEur,
             callerEmail: args.callerEmail,

@@ -7,12 +7,12 @@ import { useRouter } from "next/navigation";
 import { AudioOrb } from "./audio-orb";
 import { ClaimCardLive } from "./claim-card-live";
 import { InspectionOverlay } from "./inspection-overlay";
-import { useGeminiLive } from "@/components/call/use-gemini-live";
+import { useGeminiLive, LINA_VOICES } from "@/components/call/use-gemini-live";
 import { useToolBridge } from "@/components/call/use-tool-bridge";
 import { buildSystemPrompt } from "@/lib/agent/system-prompt";
 import { Button } from "@/components/ui/button";
 
-export function CallView({ sessionId }: { sessionId: string }) {
+export function CallView({ sessionId, onCallConcluded }: { sessionId: string; onCallConcluded?: () => void }) {
   const router = useRouter();
 
   const claim = useQuery(api.claims.bySession, { sessionId });
@@ -41,6 +41,7 @@ export function CallView({ sessionId }: { sessionId: string }) {
   // R3 belt-and-suspenders: show inspection button immediately on tool call, before Convex round-trip
   const [optimisticInspectionRequested, setOptimisticInspectionRequested] =
     useState(false);
+  const finalizeSucceededRef = useRef(false);
 
   // Request location permission before the call starts
   useEffect(() => {
@@ -123,16 +124,22 @@ export function CallView({ sessionId }: { sessionId: string }) {
       }
       const result = await handleToolCall(call);
 
-      // After finalize, trigger Tavily and redirect
+      // After finalize: trigger Tavily. Switch to ReviewView only after call ends
+      // (onStateChange "ended") to avoid cutting Lina off mid-sentence.
       if (call.name === "finalize_claim" && claim?._id) {
-        runTavilyAction({ claimId: claim._id }).catch(console.error);
-        setTimeout(() => router.push(`/claim/${sessionId}`), 2000);
+        const ok = !(result as any)?.error;
+        if (ok) {
+          finalizeSucceededRef.current = true;
+          runTavilyAction({ claimId: claim._id }).catch(console.error);
+        }
       }
 
       return result;
     },
     [handleToolCall, claim?._id, sessionId, router, runTavilyAction]
   );
+
+  const userLanguage = (currentUser?.language ?? "de") as "de" | "en";
 
   const { state, isVideoActive, connect, disconnect, startVideo, stopVideo } =
     useGeminiLive({
@@ -141,8 +148,10 @@ export function CallView({ sessionId }: { sessionId: string }) {
             name: currentUser.name,
             email: currentUser.email,
             activePolicyTypes: currentUser.activePolicyTypes ?? [],
+            language: userLanguage,
           })
         : "You are Lina, a helpful insurance claims assistant.",
+      voiceName: LINA_VOICES[userLanguage],
       onToolCall,
       onTranscript: (text, role) => {
         const prefix = role === "user" ? "[User]: " : "[Lina]: ";
@@ -169,6 +178,10 @@ export function CallView({ sessionId }: { sessionId: string }) {
             timerRef.current = null;
           }
           stopAmbient();
+          // Only switch to ReviewView if finalize_claim succeeded during this call
+          if (s === "ended" && finalizeSucceededRef.current) {
+            onCallConcluded?.();
+          }
         }
       },
     });

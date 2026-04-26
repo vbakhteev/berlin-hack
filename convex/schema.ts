@@ -9,6 +9,7 @@ export default defineSchema({
     tokenIdentifier: v.string(),
     onboardingComplete: v.optional(v.boolean()),
     activePolicyTypes: v.optional(v.array(v.string())),
+    language: v.optional(v.union(v.literal("de"), v.literal("en"))),
   }).index("by_token", ["tokenIdentifier"]),
 
   claims: defineTable({
@@ -47,6 +48,7 @@ export default defineSchema({
     gpsAccuracyMeters: v.optional(v.number()),
     productCategory: v.optional(v.string()),
     productBrandModel: v.optional(v.string()),
+    purchaseDate: v.optional(v.string()),
     damageSummary: v.optional(v.string()),
     estimatedDamageEur: v.optional(v.number()),
     callerEmail: v.optional(v.string()),

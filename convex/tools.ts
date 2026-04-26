@@ -23,7 +23,7 @@ async function logEvent(ctx: any, claim: any, type: string, toolName: string | u
 export const matchPolicy = mutation({
   args: {
     sessionId: v.string(),
-    lossHypothesis: v.string(),
+    lossHypothesis: v.optional(v.string()),
     productCategory: v.optional(v.string()),
     policyType: v.optional(v.string()),
   },
@@ -53,7 +53,7 @@ export const matchPolicy = mutation({
         };
       }
     } else {
-      const hypothesis = lossHypothesis.toLowerCase();
+      const hypothesis = (lossHypothesis ?? "").toLowerCase();
       const category = (productCategory ?? "").toLowerCase();
       const text = hypothesis + " " + category;
 
@@ -138,6 +138,7 @@ export const updateClaimField = mutation({
     incidentLocation: v.optional(v.string()),
     productCategory: v.optional(v.string()),
     productBrandModel: v.optional(v.string()),
+    purchaseDate: v.optional(v.string()),
     damageSummary: v.optional(v.string()),
     estimatedDamageEur: v.optional(v.number()),
     callerEmail: v.optional(v.string()),
@@ -229,6 +230,27 @@ export const finalizeClaim = mutation({
       .withIndex("by_session", (q: any) => q.eq("sessionId", sessionId))
       .unique();
     if (!claim) throw new Error("Claim not found");
+
+    // Server-side completeness gate.
+    // Each field must be stored via update_claim_field — Gemini cannot hallucinate past this gate.
+    // purchaseDate and estimatedDamageEur are rarely volunteered upfront,
+    // forcing Gemini to ask explicitly before finalize can succeed.
+    const missing: string[] = [];
+    if (!claim.incidentDate) missing.push("incidentDate — ask: 'Wann war das ungefähr?'");
+    if (!claim.productBrandModel && !claim.productCategory) missing.push("productBrandModel — ask: 'Was genau für ein Gerät?'");
+    if (!claim.purchaseDate) missing.push("purchaseDate — ask: 'Wann haben Sie das ungefähr gekauft?'");
+    if (!claim.estimatedDamageEur) missing.push("estimatedDamageEur — ask: 'Was hat das Gerät damals ungefähr gekostet?'");
+    if (!claim.callerEmail) missing.push("callerEmail — collect their email address");
+    if (missing.length > 0) {
+      return { ok: false, error: `Cannot finalize yet — still need: ${missing.join("; ")}. Ask for each missing fact before retrying.` };
+    }
+
+    // Minimum conversation depth — at least 5 separate update_claim_field calls.
+    // Prevents Gemini from batching all facts into 4 rapid calls and immediately finalizing.
+    const fieldUpdateCount = (claim.events ?? []).filter((e: any) => e.toolName === "update_claim_field").length;
+    if (fieldUpdateCount < 5) {
+      return { ok: false, error: `Too early to finalize — only ${fieldUpdateCount} field updates logged. Continue the conversation.` };
+    }
 
     const uploads =
       requiredUploads && requiredUploads.length > 0
