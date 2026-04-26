@@ -124,8 +124,6 @@ export function IosCallScreen({ sessionId }: { sessionId: string }) {
     [handleToolCall, claim?._id, endCallMutation, goToSummary]
   );
 
-  const userLanguage = (currentUser?.language ?? "en") as "de" | "en";
-
   const { state, isVideoActive, connect, disconnect, startVideo, stopVideo } =
     useGeminiLive({
     systemPrompt: currentUser
@@ -133,10 +131,9 @@ export function IosCallScreen({ sessionId }: { sessionId: string }) {
           name: MOCK_CUSTOMER.fullName,
           email: currentUser.email,
           activePolicyTypes: AXA_DEMO_POLICY_TYPES,
-          language: userLanguage,
         })
-      : "You are Lina, a helpful AXA insurance claims assistant.",
-    voiceName: LINA_VOICES[userLanguage],
+      : "You are Sandra, a helpful AXA insurance claims assistant.",
+    voiceName: LINA_VOICES.en,
     onToolCall,
     onTranscript: (text, role) => {
       const prefix = role === "user" ? "[Anrufer]: " : "[AXA]: ";

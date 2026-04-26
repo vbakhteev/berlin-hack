@@ -151,8 +151,6 @@ export function CallView({
     [handleToolCall, claim?._id, sessionId, router, runTavilyAction]
   );
 
-  const userLanguage = (currentUser?.language ?? "en") as "de" | "en";
-
   const { state, isVideoActive, connect, disconnect, startVideo, stopVideo } =
     useGeminiLive({
       systemPrompt: currentUser
@@ -160,10 +158,9 @@ export function CallView({
             name: currentUser.name,
             email: currentUser.email,
             activePolicyTypes: currentUser.activePolicyTypes ?? [],
-            language: userLanguage,
           })
-        : "You are Lina, a helpful insurance claims assistant.",
-      voiceName: LINA_VOICES[userLanguage],
+        : "You are Sandra, a helpful insurance claims assistant.",
+      voiceName: LINA_VOICES.en,
       onToolCall,
       onTranscript: (text, role) => {
         const prefix = role === "user" ? "[User]: " : "[Lina]: ";
