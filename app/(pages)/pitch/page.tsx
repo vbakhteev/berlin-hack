@@ -288,7 +288,7 @@ export default function PitchPage() {
               left≈6%, top≈3.5%, width≈88%, height≈93% */}
           <video
             ref={rightCallRef}
-            src="/videos/right-call.mp4"
+            src="/videos/right-call.mov"
             muted
             playsInline
             onEnded={() => { rightDoneRef.current = true; checkBothDone(); }}

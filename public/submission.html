@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hey Inka — Submission</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #fff;
+    color: #111;
+    padding: 56px 64px;
+    max-width: 800px;
+    margin: 0 auto;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 2px solid #111;
+    padding-bottom: 20px;
+    margin-bottom: 32px;
+  }
+  header h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+  header .meta { text-align: right; color: #555; font-size: 13px; }
+  header .meta strong { display: block; color: #111; font-size: 14px; margin-bottom: 2px; }
+  h2 {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #888;
+    margin-top: 28px;
+    margin-bottom: 8px;
+  }
+  p { margin-bottom: 8px; }
+  .tagline {
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1.4;
+    margin-bottom: 32px;
+    color: #222;
+    max-width: 560px;
+  }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 8px; }
+  ul { padding-left: 18px; }
+  ul li { margin-bottom: 4px; }
+  .pill {
+    display: inline-block;
+    background: #111;
+    color: #fff;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    margin-right: 6px;
+    margin-bottom: 6px;
+  }
+  .demo-link {
+    display: block;
+    margin-top: 6px;
+    color: #111;
+    font-weight: 600;
+    text-decoration: none;
+    border-bottom: 1px solid #111;
+    width: fit-content;
+  }
+  footer {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid #ddd;
+    color: #888;
+    font-size: 12px;
+  }
+  @media print {
+    body { padding: 40px 48px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Hey Inka</h1>
+    <div style="margin-top:6px; font-size:13px; color:#555;">Berlin AI Hackathon 2026</div>
+  </div>
+  <div class="meta">
+    <strong>Track</strong>
+    Inca – The Human Test
+  </div>
+</header>
+
+<p class="tagline">
+  An AI voice agent that handles insurance claims calls end-to-end.<br />
+  Your customers think it's a human. Your accountant knows it's not.
+</p>
+
+<h2>The Problem</h2>
+<p>Insurance companies receive thousands of First Notice of Loss (FNOL) calls daily. Each call requires a trained agent to gather claim details, verify policy coverage, and create a ticket — a repetitive, expensive process that doesn't scale.</p>
+
+<div class="two-col">
+  <div>
+    <h2>Our Solution</h2>
+    <p><strong>Lina</strong> — an AI voice agent that answers insurance calls and completes full FNOL intake automatically:</p>
+    <ul>
+      <li>Verifies policy coverage in real-time</li>
+      <li>Collects incident details, date, location</li>
+      <li>Files the claim via structured tool calls</li>
+      <li>Speaks German &amp; English natively</li>
+    </ul>
+    <p style="margin-top:12px;">The key insight: <strong>strategic imperfection</strong>. Lina is modeled as a 62-year-old agent with 27 years of experience — flat delivery, deliberate pauses, zero enthusiasm. Callers trust her because she doesn't sound like AI.</p>
+  </div>
+  <div>
+    <h2>Tech Stack</h2>
+    <ul>
+      <li>Gemini Live API (real-time voice streaming)</li>
+      <li>Next.js + TypeScript</li>
+      <li>Convex (real-time claim database)</li>
+      <li>Custom phone audio DSP (EQ, compression, noise floor simulation)</li>
+    </ul>
+
+    <h2 style="margin-top:20px;">Built For</h2>
+    <span class="pill">AXA</span>
+    <span class="pill">Zurich</span>
+    <span class="pill">Allianz</span>
+    <p style="margin-top:8px; font-size:13px; color:#555;">Any insurer handling inbound FNOL at scale.</p>
+  </div>
+</div>
+
+<h2 style="margin-top:32px;">Demo Video</h2>
+<a class="demo-link" href="https://berlin-hack-psi.vercel.app/pitch">berlin-hack-psi.vercel.app/pitch</a>
+
+<h2 style="margin-top:32px;">How to Test It</h2>
+<div style="background:#f7f7f7; border-radius:8px; padding:20px 24px; margin-top:8px;">
+  <ol style="padding-left:18px;">
+    <li style="margin-bottom:10px;">Open <strong><a href="https://berlin-hack-psi.vercel.app/axa" style="color:#111;">berlin-hack-psi.vercel.app/axa</a></strong> on your phone or laptop</li>
+    <li style="margin-bottom:10px;">On the home screen, tap the <strong>blue phone button</strong> — "Schaden melden / Report a claim"</li>
+    <li style="margin-bottom:10px;">Lina answers. Speak naturally — tell her you had an incident (e.g. <em>"My laptop was stolen"</em> or <em>"Mein Laptop wurde gestohlen"</em>)</li>
+    <li style="margin-bottom:10px;">She'll ask follow-up questions to complete the claim: date, location, description</li>
+    <li style="margin-bottom:0;">Once done, the claim summary appears automatically on screen</li>
+  </ol>
+  <p style="margin-top:14px; font-size:13px; color:#555;">Works in German and English. No login required. Allow microphone access when prompted.</p>
+</div>
+
+<footer>
+  Hey Inka · Berlin AI Hackathon 2026 · Inca – The Human Test Track
+</footer>
+
+</body>
+</html>
