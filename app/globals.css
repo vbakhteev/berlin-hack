@@ -2,6 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
+/* AXA brand scope — only active inside /axa/* */
+.axa-scope {
+  --axa-blue: #00008F;
+  --axa-blue-hover: #000074;
+  --axa-blue-active: #00005C;
+  --axa-red: #E0001A;
+  --axa-bg: #FFFFFF;
+  --axa-bg-muted: #F5F5F5;
+  --axa-text: #1A1A1A;
+  --axa-text-muted: #666666;
+  --axa-border: #E0E0E0;
+  /* Override shadcn tokens */
+  --background: 0 0% 100%;
+  --foreground: 0 0% 10%;
+  --primary: 240 100% 28%;
+  --primary-foreground: 0 0% 100%;
+  --border: 0 0% 88%;
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 40%;
+  color-scheme: light;
+}
+
+@keyframes axa-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.axa-sheet-enter {
+  animation: axa-slide-up 320ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
 :root {
   --inca-bg: #FFFFFF;
   --inca-text: #111111;

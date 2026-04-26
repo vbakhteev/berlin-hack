@@ -94,6 +94,20 @@ export const completeOnboarding = mutation({
   },
 });
 
+export const updateLanguage = mutation({
+  args: { language: v.union(v.literal("de"), v.literal("en")) },
+  handler: async (ctx, { language }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_token", (q) => q.eq("tokenIdentifier", identity.subject))
+      .unique();
+    if (!user) throw new Error("User not found");
+    await ctx.db.patch(user._id, { language });
+  },
+});
+
 export const updatePolicyTypes = mutation({
   args: { policyTypes: v.array(v.string()) },
   handler: async (ctx, { policyTypes }) => {

@@ -34,3 +34,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local agent infra (Konstantin setup, do not commit)
+scripts/
+CLAUDE.md
+team-culture.md

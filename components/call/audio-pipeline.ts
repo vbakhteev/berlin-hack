@@ -72,6 +72,7 @@ export class AudioPlayer {
   private sampleRate: number;
   private responseStarted = false;
   private ambientSource: AudioBufferSourceNode | null = null;
+  private noiseSource: AudioBufferSourceNode | null = null;
   private firstResponseNotBefore = 0; // absolute ms timestamp — don't play before this
   private isFirstResponse = true; // for handset-lift volume ramp on greeting
   public onPlaybackStart: (() => void) | null = null;
@@ -88,7 +89,37 @@ export class AudioPlayer {
   init(): void {
     if (!this.audioContext) {
       this.audioContext = new AudioContext({ sampleRate: this.sampleRate });
+      this.startNoiseFloor();
     }
+  }
+
+  // Constant phone-band noise floor — bypasses the compressor so it never pumps.
+  // ~-54dB white noise through phone bandpass (350–3000Hz), loops indefinitely.
+  private startNoiseFloor(): void {
+    if (!this.audioContext || this.noiseSource) return;
+    const ctx = this.audioContext;
+    const len = ctx.sampleRate * 2; // 2s loop to avoid audible pattern repetition
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+
+    const hp = ctx.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.value = 350;
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 3000;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.0025;
+
+    this.noiseSource = ctx.createBufferSource();
+    this.noiseSource.buffer = buf;
+    this.noiseSource.loop = true;
+    this.noiseSource.connect(hp);
+    hp.connect(lp);
+    lp.connect(gain);
+    gain.connect(ctx.destination);
+    this.noiseSource.start();
   }
 
   enqueue(base64Audio: string): void {
@@ -98,8 +129,6 @@ export class AudioPlayer {
     const float32 = new Float32Array(pcm16.length);
     for (let i = 0; i < pcm16.length; i++) {
       float32[i] = pcm16[i] / 32768;
-      // Barely-there noise floor — ~-54dB, just takes the edge off studio silence
-      float32[i] += (Math.random() * 2 - 1) * 0.0025;
     }
     const buffer = this.audioContext!.createBuffer(1, float32.length, this.sampleRate);
     buffer.copyToChannel(float32, 0);
@@ -364,6 +393,8 @@ export class AudioPlayer {
 
   stop(): void {
     this.stopOfficeAmbient();
+    try { this.noiseSource?.stop(); } catch {}
+    this.noiseSource = null;
     this.queue = [];
     this.isPlaying = false;
     this.responseStarted = false;
