@@ -130,52 +130,37 @@ export default function PitchPage() {
         </defs>
       </svg>
 
-      {/* ── Background: dark green bokeh blobs + fine grain (matches inca.com) ── */}
+      {/* ── Background: dark green grain + soft brightness variation (matches inca.com) ── */}
       <div className="absolute inset-0" style={{ zIndex: 0 }}>
-        {/* Layer 1: dark green base — slightly lighter so pattern reads */}
-        <div className="absolute inset-0" style={{ background: "#0f2012" }} />
-        {/* Layer 2: scattered wave blobs — brighter to show contrast */}
+        {/* Layer 1: base */}
+        <div className="absolute inset-0" style={{ background: "#162816" }} />
+        {/* Layer 2: gentle brightness variation — large, low-opacity, heavily overlapping */}
         <div className="absolute inset-0" style={{
           background: [
-            "radial-gradient(ellipse 52% 44% at 22% 36%, rgba(44,90,28,0.72) 0%, transparent 100%)",
-            "radial-gradient(ellipse 46% 38% at 74% 54%, rgba(46,92,30,0.76) 0%, transparent 100%)",
-            "radial-gradient(ellipse 30% 26% at 84% 16%, rgba(38,78,24,0.56) 0%, transparent 100%)",
-            "radial-gradient(ellipse 26% 22% at 46% 12%, rgba(36,74,22,0.52) 0%, transparent 100%)",
-            "radial-gradient(ellipse 36% 30% at 12% 74%, rgba(34,70,20,0.62) 0%, transparent 100%)",
-            "radial-gradient(ellipse 28% 24% at 58% 88%, rgba(32,68,19,0.48) 0%, transparent 100%)",
-            "radial-gradient(ellipse 20% 18% at 4% 46%,  rgba(30,64,18,0.42) 0%, transparent 100%)",
-            "radial-gradient(ellipse 32% 28% at 90% 80%, rgba(28,60,16,0.46) 0%, transparent 100%)",
-            "radial-gradient(ellipse 22% 20% at 34% 58%, rgba(38,78,24,0.42) 0%, transparent 100%)",
+            "radial-gradient(ellipse 70% 60% at 22% 36%, rgba(36,74,22,0.28) 0%, transparent 100%)",
+            "radial-gradient(ellipse 65% 55% at 74% 54%, rgba(38,76,24,0.30) 0%, transparent 100%)",
+            "radial-gradient(ellipse 55% 45% at 84% 16%, rgba(30,64,18,0.20) 0%, transparent 100%)",
+            "radial-gradient(ellipse 60% 50% at 12% 74%, rgba(28,60,16,0.22) 0%, transparent 100%)",
+            "radial-gradient(ellipse 50% 55% at 46% 88%, rgba(26,56,15,0.18) 0%, transparent 100%)",
+            "radial-gradient(ellipse 55% 45% at 58% 22%, rgba(24,54,14,0.16) 0%, transparent 100%)",
           ].join(", "),
         }} />
-        {/* Layer 3: wavy streaks — directional turbulence creates curved veils of light/dark */}
-        <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"
-          style={{ position: "absolute", inset: 0, display: "block", opacity: 0.38 }}>
-          <defs>
-            <filter id="streaks" x="0%" y="0%" width="100%" height="100%">
-              <feTurbulence type="turbulence" baseFrequency="0.005 0.018"
-                numOctaves="2" seed="7" stitchTiles="stitch" result="t" />
-              <feColorMatrix type="matrix"
-                values="0 0 0 0 0.06
-                        0 0 0 0 0.18
-                        0 0 0 0 0.06
-                        0 0 0 5 -1.8"
-                in="t" />
-            </filter>
-          </defs>
-          <rect width="100%" height="100%" filter="url(#streaks)" />
-        </svg>
-        {/* Layer 4: fine grain on top */}
+        {/* Layer 3: fine grain — the "pixelated" texture */}
         <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"
           style={{ position: "absolute", inset: 0, display: "block", opacity: 0.22 }}>
           <defs>
             <filter id="grain" x="0%" y="0%" width="100%" height="100%">
-              <feTurbulence type="fractalNoise" baseFrequency="0.72 0.75"
-                numOctaves="4" seed="3" stitchTiles="stitch" />
-              <feColorMatrix type="saturate" values="0" />
+              <feTurbulence type="fractalNoise" baseFrequency="0.55 0.60"
+                numOctaves="3" seed="4" stitchTiles="stitch" result="t" />
+              <feColorMatrix type="matrix"
+                values="0 0 0 0 0.04
+                        0 0 0 0 0.14
+                        0 0 0 0 0.04
+                        0 0 0 1.8 -0.4"
+                in="t" />
             </filter>
           </defs>
-          <rect width="100%" height="100%" fill="white" filter="url(#grain)" />
+          <rect width="100%" height="100%" filter="url(#grain)" />
         </svg>
       </div>
 
@@ -252,19 +237,11 @@ export default function PitchPage() {
         </div>
 
         {/* ── Right: iPhone 15 Pro mockup ── */}
-        {/* Outer container sized to the full mockup image ratio (1419×2796) */}
         <div style={{
           flex: "0 0 auto",
           height: "min(86vh, calc(100vh - 84px))",
           aspectRatio: "1419 / 2796",
           position: "relative",
-          // Light white-green glow — matches left panel
-          filter: [
-            "drop-shadow(0 0 2px rgba(210,255,210,0.9))",
-            "drop-shadow(0 4px 16px rgba(190,240,190,0.45))",
-            "drop-shadow(0 16px 48px rgba(170,230,170,0.28))",
-            "drop-shadow(0 40px 80px rgba(150,210,150,0.15))",
-          ].join(" "),
         }}>
           {/* Underlight */}
           <div style={{
@@ -273,10 +250,10 @@ export default function PitchPage() {
             filter: "blur(16px)", zIndex: -1,
           }} />
 
-          {/* Dark backing in screen area — video shows on top, mockup multiply blends white away */}
+          {/* Dark backing */}
           <div style={{
             position: "absolute",
-            left: "6%", top: "3.5%", width: "88%", height: "93%",
+            left: "8%", top: "3.8%", width: "84%", height: "92.4%",
             background: "#0a0a0a",
             borderRadius: "10%",
           }} />
@@ -284,9 +261,9 @@ export default function PitchPage() {
           {/* Video clipped to screen area of iPhone 15 Pro mockup.
               Screen area measured from 1419×2796 source:
               left≈6%, top≈3.5%, width≈88%, height≈93% */}
-          <video ref={rightCallRef} muted playsInline loop style={{
+          <video ref={rightCallRef} src="/videos/right-call.mp4" muted playsInline loop style={{
             position: "absolute",
-            left: "6%", top: "3.5%", width: "88%", height: "93%",
+            left: "8.5%", top: "4.8%", width: "83%", height: "90.5%",
             objectFit: "cover",
             borderRadius: "10%",
             opacity: callActive ? 1 : 0,
@@ -294,34 +271,27 @@ export default function PitchPage() {
           }} />
           <video ref={rightSummaryRef} muted playsInline style={{
             position: "absolute",
-            left: "6%", top: "3.5%", width: "88%", height: "93%",
+            left: "8.5%", top: "4.8%", width: "83%", height: "90.5%",
             objectFit: "cover",
             borderRadius: "10%",
             opacity: summaryActive ? 1 : 0,
             transition: "opacity 0.6s ease",
           }} />
 
-          {/* Placeholder label */}
-          <div style={{
-            position: "absolute", left: "6%", top: "3.5%", width: "88%", height: "93%",
-            display: "flex", alignItems: "flex-end", justifyContent: "center",
-            paddingBottom: "12px", opacity: 0.3, pointerEvents: "none",
-          }}>
-            <span style={{ color: "white", fontSize: "0.6rem", fontFamily: "monospace", textAlign: "center" }}>
-              {summaryActive ? "right-summary.mp4" : "right-call.mp4"}
-            </span>
-          </div>
-
-          {/* iPhone frame overlaid — multiply blends white screen area away */}
+          {/* iPhone frame — truly topmost, filter on img itself (not parent) */}
           <img
             src="/iphone15-pro-black.webp"
             alt=""
             style={{
-              position: "absolute", inset: 0,
+              position: "absolute", inset: 0, zIndex: 10,
               width: "100%", height: "100%",
               objectFit: "fill",
               mixBlendMode: "multiply",
               pointerEvents: "none",
+              filter: [
+                "drop-shadow(0 3px 10px rgba(180,230,180,0.18))",
+                "drop-shadow(0 12px 36px rgba(160,215,160,0.12))",
+              ].join(" "),
             }}
           />
         </div>
