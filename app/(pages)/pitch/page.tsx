@@ -28,43 +28,28 @@ function ConvexVideo({
   videoRef,
   opacity,
   loop,
-  placeholder,
+  src,
 }: {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   opacity: number;
   loop?: boolean;
-  placeholder: string;
+  src?: string;
 }) {
   return (
-    <>
-      <video
-        ref={videoRef}
-        muted
-        playsInline
-        loop={loop}
-        style={{
-          position: "absolute", inset: 0,
-          width: "100%", height: "100%",
-          objectFit: "cover",
-          opacity,
-          transition: "opacity 0.6s ease",
-        }}
-      />
-      {/* Placeholder shown when no src */}
-      <div
-        style={{
-          position: "absolute", inset: 0,
-          display: "flex", alignItems: "flex-end", justifyContent: "center",
-          paddingBottom: "12px",
-          opacity: 0.3,
-          pointerEvents: "none",
-        }}
-      >
-        <span style={{ color: "white", fontSize: "0.65rem", fontFamily: "monospace" }}>
-          {placeholder}
-        </span>
-      </div>
-    </>
+    <video
+      ref={videoRef}
+      src={src}
+      muted
+      playsInline
+      loop={loop}
+      style={{
+        position: "absolute", inset: 0,
+        width: "100%", height: "100%",
+        objectFit: "cover",
+        opacity,
+        transition: "opacity 0.6s ease",
+      }}
+    />
   );
 }
 
@@ -130,33 +115,94 @@ export default function PitchPage() {
         </defs>
       </svg>
 
-      {/* ── Background: dark green grain + soft brightness variation (matches inca.com) ── */}
+      {/* ── Background: organic dark zones (top band + left col + lower-right) + scattered specks + fine grain ── */}
       <div className="absolute inset-0" style={{ zIndex: 0 }}>
-        {/* Layer 1: base */}
-        <div className="absolute inset-0" style={{ background: "#162816" }} />
-        {/* Layer 2: gentle brightness variation — large, low-opacity, heavily overlapping */}
-        <div className="absolute inset-0" style={{
-          background: [
-            "radial-gradient(ellipse 70% 60% at 22% 36%, rgba(36,74,22,0.28) 0%, transparent 100%)",
-            "radial-gradient(ellipse 65% 55% at 74% 54%, rgba(38,76,24,0.30) 0%, transparent 100%)",
-            "radial-gradient(ellipse 55% 45% at 84% 16%, rgba(30,64,18,0.20) 0%, transparent 100%)",
-            "radial-gradient(ellipse 60% 50% at 12% 74%, rgba(28,60,16,0.22) 0%, transparent 100%)",
-            "radial-gradient(ellipse 50% 55% at 46% 88%, rgba(26,56,15,0.18) 0%, transparent 100%)",
-            "radial-gradient(ellipse 55% 45% at 58% 22%, rgba(24,54,14,0.16) 0%, transparent 100%)",
-          ].join(", "),
-        }} />
-        {/* Layer 3: fine grain — the "pixelated" texture */}
+        {/* Base green */}
+        <div className="absolute inset-0" style={{ background: "#1c3820" }} />
+
+        {/* Organic dark zone shapes — SVG paths with heavy Gaussian blur = soft, flowing edges */}
+        <svg
+          width="100%" height="100%"
+          viewBox="0 0 1920 1080"
+          preserveAspectRatio="xMidYMid slice"
+          xmlns="http://www.w3.org/2000/svg"
+          style={{ position: "absolute", inset: 0, display: "block" }}
+        >
+          <defs>
+            <filter id="bz1" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="88" />
+            </filter>
+            <filter id="bz2" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="58" />
+            </filter>
+          </defs>
+
+          {/* Zone A: top dark band — wavy lower boundary, deeper on left */}
+          <path
+            d="M 0,0 L 1920,0 L 1920,300 Q 1580,390 1200,260 Q 830,140 490,310 Q 230,410 0,440 Z"
+            fill="rgba(0,0,0,0.63)"
+            filter="url(#bz1)"
+          />
+          {/* Zone B: left dark column — full height, soft right edge */}
+          <path
+            d="M 0,0 L 195,0 Q 170,290 148,550 Q 126,780 100,1080 L 0,1080 Z"
+            fill="rgba(0,0,0,0.70)"
+            filter="url(#bz2)"
+          />
+          {/* Zone C: lower-right dark cluster — wavy upper boundary */}
+          <path
+            d="M 1920,700 Q 1690,590 1460,690 Q 1255,790 1040,670 Q 890,610 830,850 Q 770,1040 990,1080 L 1920,1080 Z"
+            fill="rgba(0,0,0,0.62)"
+            filter="url(#bz1)"
+          />
+          {/* Zone D: top-right corner shadow */}
+          <ellipse cx="1840" cy="70" rx="270" ry="170" fill="rgba(0,0,0,0.44)" filter="url(#bz1)" />
+          {/* Zone E: left-edge mid deepening */}
+          <ellipse cx="75" cy="700" rx="170" ry="300" fill="rgba(0,0,0,0.40)" filter="url(#bz2)" />
+
+          {/* Scattered dark specks — organic dots spread across lighter zones */}
+          <g fill="rgba(0,0,0,0.52)">
+            <circle cx="370" cy="220" r="2.2" /><circle cx="500" cy="172" r="1.9" /><circle cx="630" cy="245" r="2.5" />
+            <circle cx="785" cy="193" r="1.7" /><circle cx="925" cy="235" r="2.1" /><circle cx="1065" cy="182" r="1.8" />
+            <circle cx="1195" cy="252" r="2.3" /><circle cx="1355" cy="205" r="1.6" /><circle cx="1500" cy="225" r="2.0" />
+            <circle cx="1660" cy="178" r="1.9" /><circle cx="1810" cy="248" r="2.1" />
+
+            <circle cx="275" cy="515" r="2.3" /><circle cx="415" cy="575" r="1.8" /><circle cx="565" cy="505" r="2.1" />
+            <circle cx="725" cy="595" r="2.4" /><circle cx="885" cy="535" r="1.9" /><circle cx="1025" cy="605" r="2.0" />
+            <circle cx="1205" cy="525" r="2.2" /><circle cx="1375" cy="585" r="1.7" /><circle cx="1565" cy="515" r="2.3" />
+            <circle cx="1745" cy="575" r="1.8" /><circle cx="1875" cy="505" r="2.0" />
+
+            <circle cx="235" cy="735" r="2.1" /><circle cx="395" cy="815" r="1.9" /><circle cx="555" cy="765" r="2.4" />
+            <circle cx="715" cy="875" r="1.8" /><circle cx="865" cy="795" r="2.2" /><circle cx="1005" cy="855" r="1.7" />
+            <circle cx="190" cy="935" r="2.0" /><circle cx="345" cy="975" r="1.8" /><circle cx="485" cy="915" r="2.3" />
+            <circle cx="645" cy="992" r="1.9" /><circle cx="805" cy="955" r="2.1" />
+
+            <circle cx="158" cy="405" r="1.9" /><circle cx="315" cy="665" r="2.0" /><circle cx="755" cy="445" r="2.2" />
+            <circle cx="1095" cy="695" r="1.8" /><circle cx="1435" cy="435" r="2.0" /><circle cx="1715" cy="395" r="1.9" />
+            <circle cx="475" cy="365" r="2.1" /><circle cx="1605" cy="765" r="1.8" /><circle cx="955" cy="765" r="2.0" />
+            <circle cx="1275" cy="725" r="2.2" /><circle cx="1495" cy="675" r="1.7" /><circle cx="1725" cy="645" r="2.1" />
+          </g>
+          {/* Larger bright-green specks for variance */}
+          <g fill="rgba(85,165,65,0.28)">
+            <circle cx="585" cy="395" r="3.8" /><circle cx="1085" cy="335" r="3.2" />
+            <circle cx="785" cy="715" r="4.0" /><circle cx="365" cy="845" r="3.5" />
+            <circle cx="1445" cy="565" r="3.6" /><circle cx="1265" cy="815" r="3.3" />
+            <circle cx="925" cy="485" r="3.0" /><circle cx="1625" cy="465" r="3.4" />
+          </g>
+        </svg>
+
+        {/* Fine grain texture */}
         <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg"
-          style={{ position: "absolute", inset: 0, display: "block", opacity: 0.22 }}>
+          style={{ position: "absolute", inset: 0, display: "block", opacity: 0.42 }}>
           <defs>
             <filter id="grain" x="0%" y="0%" width="100%" height="100%">
-              <feTurbulence type="fractalNoise" baseFrequency="0.55 0.60"
-                numOctaves="3" seed="4" stitchTiles="stitch" result="t" />
+              <feTurbulence type="fractalNoise" baseFrequency="0.96 1.00"
+                numOctaves="4" seed="11" stitchTiles="stitch" result="t" />
               <feColorMatrix type="matrix"
-                values="0 0 0 0 0.04
-                        0 0 0 0 0.14
-                        0 0 0 0 0.04
-                        0 0 0 1.8 -0.4"
+                values="0 0 0 0.36 -0.10
+                        0 0 0 0.68  0.04
+                        0 0 0 0.36 -0.10
+                        0 0 0 4.6 -1.95"
                 in="t" />
             </filter>
           </defs>
@@ -231,8 +277,8 @@ export default function PitchPage() {
             background: "#1a2a1a",
             overflow: "hidden",
           }}>
-            <ConvexVideo videoRef={leftCallRef} opacity={callActive ? 1 : 0} loop placeholder="left-call.mp4" />
-            <ConvexVideo videoRef={leftSummaryRef} opacity={summaryActive ? 1 : 0} placeholder="left-summary.mp4" />
+            <ConvexVideo videoRef={leftCallRef} opacity={callActive ? 1 : 0} loop src="/videos/left-call.mp4" />
+            <ConvexVideo videoRef={leftSummaryRef} opacity={summaryActive ? 1 : 0} />
           </div>
         </div>
 
@@ -255,7 +301,7 @@ export default function PitchPage() {
             position: "absolute",
             left: "8%", top: "3.8%", width: "84%", height: "92.4%",
             background: "#0a0a0a",
-            borderRadius: "10%",
+            borderRadius: "8%",
           }} />
 
           {/* Video clipped to screen area of iPhone 15 Pro mockup.
@@ -265,7 +311,7 @@ export default function PitchPage() {
             position: "absolute",
             left: "8.5%", top: "4.8%", width: "83%", height: "90.5%",
             objectFit: "cover",
-            borderRadius: "10%",
+            borderRadius: "8%",
             opacity: callActive ? 1 : 0,
             transition: "opacity 0.6s ease",
           }} />
@@ -273,7 +319,7 @@ export default function PitchPage() {
             position: "absolute",
             left: "8.5%", top: "4.8%", width: "83%", height: "90.5%",
             objectFit: "cover",
-            borderRadius: "10%",
+            borderRadius: "8%",
             opacity: summaryActive ? 1 : 0,
             transition: "opacity 0.6s ease",
           }} />
