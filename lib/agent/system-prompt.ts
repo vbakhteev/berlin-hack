@@ -299,7 +299,7 @@ export function buildSystemPrompt(user: UserContext): string {
           .map((t) => `  - ${t.title} (policy ID: ${t.id}): ${t.description}\n    MATCH WHEN caller mentions: ${t.triggerExamples}`)
           .join("\n");
 
-  const greetings = (user.language ?? "de") === "en" ? GREETINGS_EN : GREETINGS_DE;
+  const greetings = (user.language ?? "en") === "en" ? GREETINGS_EN : GREETINGS_DE;
   const character = LINA_CHARACTER.replace("__GREETING_VARIATIONS__", greetings);
 
   return `${character}

@@ -151,7 +151,7 @@ export function CallView({
     [handleToolCall, claim?._id, sessionId, router, runTavilyAction]
   );
 
-  const userLanguage = (currentUser?.language ?? "de") as "de" | "en";
+  const userLanguage = (currentUser?.language ?? "en") as "de" | "en";
 
   const { state, isVideoActive, connect, disconnect, startVideo, stopVideo } =
     useGeminiLive({
