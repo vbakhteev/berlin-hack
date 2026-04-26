@@ -75,6 +75,14 @@ export class AudioPlayer {
   private noiseSource: AudioBufferSourceNode | null = null;
   private firstResponseNotBefore = 0; // absolute ms timestamp — don't play before this
   private isFirstResponse = true; // for handset-lift volume ramp on greeting
+  // turnComplete tracks whether the server has signalled end-of-turn for the
+  // current Gemini response. Without this, playNext() would fire onPlaybackEnd
+  // every time the chunk queue briefly drained mid-turn — half-duplexing the
+  // mic mid-utterance and feeding Lina's own audio (post-echo-cancel) back into
+  // the manual VAD, which sent bogus activityStart/End events and left Gemini
+  // in a stuck state for the second turn. Initial value true = no turn in flight.
+  private turnComplete = true;
+  private endTimer: ReturnType<typeof setTimeout> | null = null;
   public onPlaybackStart: (() => void) | null = null;
   public onPlaybackEnd: (() => void) | null = null;
 
@@ -124,6 +132,13 @@ export class AudioPlayer {
 
   enqueue(base64Audio: string): void {
     if (!this.audioContext) this.init();
+    // New audio = a turn is in flight. Cancel any pending end-of-turn fire
+    // queued by playNext() during a transient queue drain.
+    this.turnComplete = false;
+    if (this.endTimer) {
+      clearTimeout(this.endTimer);
+      this.endTimer = null;
+    }
     const bytes = Uint8Array.from(atob(base64Audio), (c) => c.charCodeAt(0));
     const pcm16 = new Int16Array(bytes.buffer);
     const float32 = new Float32Array(pcm16.length);
@@ -208,11 +223,42 @@ export class AudioPlayer {
     return highpass;
   }
 
+  // Server has signalled end-of-turn (turnComplete / generationComplete).
+  // If the queue is already drained, fire onPlaybackEnd now; otherwise the
+  // last call to playNext() will fire it once the buffers finish.
+  markTurnComplete(): void {
+    this.turnComplete = true;
+    if (this.endTimer) {
+      clearTimeout(this.endTimer);
+      this.endTimer = null;
+    }
+    if (!this.isPlaying && this.queue.length === 0) {
+      this.responseStarted = false;
+      this.onPlaybackEnd?.();
+    }
+  }
+
   private playNext(): void {
     if (!this.audioContext || this.queue.length === 0) {
       this.isPlaying = false;
       this.responseStarted = false;
-      this.onPlaybackEnd?.();
+      if (this.turnComplete) {
+        // True end-of-turn — fire immediately
+        this.onPlaybackEnd?.();
+      } else {
+        // Mid-turn drain — wait for the next chunk OR for a server signal.
+        // 250ms safety net: tight enough that the user can speak immediately
+        // after Lina without their first words getting dropped while we wait
+        // for a turnComplete that may arrive late or not at all. Cleared by
+        // enqueue() if another audio chunk arrives within the window.
+        this.endTimer = setTimeout(() => {
+          this.endTimer = null;
+          if (this.queue.length === 0 && !this.isPlaying) {
+            this.turnComplete = true;
+            this.onPlaybackEnd?.();
+          }
+        }, 250);
+      }
       return;
     }
     this.isPlaying = true;
@@ -395,9 +441,14 @@ export class AudioPlayer {
     this.stopOfficeAmbient();
     try { this.noiseSource?.stop(); } catch {}
     this.noiseSource = null;
+    if (this.endTimer) {
+      clearTimeout(this.endTimer);
+      this.endTimer = null;
+    }
     this.queue = [];
     this.isPlaying = false;
     this.responseStarted = false;
+    this.turnComplete = true;
     this.audioContext?.close();
     this.audioContext = null;
   }
