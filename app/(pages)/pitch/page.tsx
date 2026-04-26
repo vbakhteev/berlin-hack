@@ -1,21 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 
-const T_INTRO_END = 5;
-const T_CALL_END = 105;
-const T_SUMMARY_END = 115;
-const T_TOTAL = 120;
+const CLOSING_DURATION_MS = 5000;
 
-type Stage = "idle" | "intro" | "call" | "summary" | "closing";
-
-function getStage(elapsed: number): Stage {
-  if (elapsed < T_INTRO_END) return "intro";
-  if (elapsed < T_CALL_END) return "call";
-  if (elapsed < T_SUMMARY_END) return "summary";
-  return "closing";
-}
+type Stage = "idle" | "call" | "closing";
 
 // Convex clip: corners stay at the outer rectangle, all 4 sides bow outward.
 // Applied to an inner div with inset: -5%, so the content bleeds 5% on each side.
@@ -27,13 +17,13 @@ const CONVEX_PATH =
 function ConvexVideo({
   videoRef,
   opacity,
-  loop,
   src,
+  onEnded,
 }: {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   opacity: number;
-  loop?: boolean;
   src?: string;
+  onEnded?: () => void;
 }) {
   return (
     <video
@@ -41,7 +31,7 @@ function ConvexVideo({
       src={src}
       muted
       playsInline
-      loop={loop}
+      onEnded={onEnded}
       style={{
         position: "absolute", inset: 0,
         width: "100%", height: "100%",
@@ -54,51 +44,34 @@ function ConvexVideo({
 }
 
 export default function PitchPage() {
-  const [elapsed, setElapsed] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const startRef = useRef<number | null>(null);
-  const rafRef = useRef<number | null>(null);
-
+  const [stage, setStage] = useState<Stage>("idle");
   const leftCallRef = useRef<HTMLVideoElement>(null);
   const rightCallRef = useRef<HTMLVideoElement>(null);
-  const leftSummaryRef = useRef<HTMLVideoElement>(null);
-  const rightSummaryRef = useRef<HTMLVideoElement>(null);
+  const leftDoneRef = useRef(false);
+  const rightDoneRef = useRef(false);
+  const closingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const stage: Stage = playing ? getStage(elapsed) : "idle";
+  const checkBothDone = useCallback(() => {
+    if (leftDoneRef.current && rightDoneRef.current) {
+      setStage("closing");
+    }
+  }, []);
+
+  const handlePlay = () => {
+    leftDoneRef.current = false;
+    rightDoneRef.current = false;
+    if (closingTimerRef.current) clearTimeout(closingTimerRef.current);
+    if (leftCallRef.current) { leftCallRef.current.currentTime = 0; leftCallRef.current.play().catch(() => {}); }
+    if (rightCallRef.current) { rightCallRef.current.currentTime = 0; rightCallRef.current.play().catch(() => {}); }
+    setStage("call");
+  };
 
   useEffect(() => {
-    if (!playing) return;
-    const tick = (now: number) => {
-      if (!startRef.current) startRef.current = now;
-      const s = Math.min((now - startRef.current) / 1000, T_TOTAL);
-      setElapsed(s);
-      if (s < T_TOTAL) rafRef.current = requestAnimationFrame(tick);
-      else setPlaying(false);
-    };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
-  }, [playing]);
+    return () => { if (closingTimerRef.current) clearTimeout(closingTimerRef.current); };
+  }, []);
 
-  useEffect(() => {
-    if (stage === "call") {
-      leftCallRef.current?.play().catch(() => {});
-      rightCallRef.current?.play().catch(() => {});
-    }
-    if (stage === "summary") {
-      leftCallRef.current?.pause();
-      rightCallRef.current?.pause();
-      leftSummaryRef.current?.play().catch(() => {});
-      rightSummaryRef.current?.play().catch(() => {});
-    }
-    if (stage === "closing") {
-      leftSummaryRef.current?.pause();
-      rightSummaryRef.current?.pause();
-    }
-  }, [stage]);
-
-  const showVideos = stage === "intro" || stage === "call" || stage === "summary";
-  const callActive = stage === "call" || stage === "intro";
-  const summaryActive = stage === "summary";
+  const showVideos = stage !== "idle";
+  const callActive = stage === "call";
   const closingActive = stage === "closing";
 
   return (
@@ -212,7 +185,7 @@ export default function PitchPage() {
 
       {/* ── Inca logo — top left, always ── */}
       <div className="absolute top-7 left-8 z-50" style={{
-        opacity: stage !== "idle" ? 1 : 0,
+        opacity: stage === "call" ? 1 : 0,
         transition: "opacity 1.2s ease",
       }}>
         <Image src="/inca-logo.avif" alt="inca" width={88} height={30}
@@ -223,7 +196,7 @@ export default function PitchPage() {
       {stage === "idle" && (
         <div className="absolute inset-0 z-50 flex items-center justify-center">
           <button
-            onClick={() => { startRef.current = null; setElapsed(0); setPlaying(true); }}
+            onClick={handlePlay}
             style={{
               padding: "14px 36px", borderRadius: "999px", color: "white",
               fontSize: "1rem", fontWeight: 500, cursor: "pointer",
@@ -243,7 +216,7 @@ export default function PitchPage() {
           justifyContent: "space-evenly",
           paddingTop: "64px",
           paddingBottom: "20px",
-          opacity: showVideos ? 1 : 0,
+          opacity: callActive ? 1 : 0,
           transition: "opacity 0.9s ease",
         }}
       >
@@ -277,8 +250,12 @@ export default function PitchPage() {
             background: "#1a2a1a",
             overflow: "hidden",
           }}>
-            <ConvexVideo videoRef={leftCallRef} opacity={callActive ? 1 : 0} loop src="/videos/left-call.mp4" />
-            <ConvexVideo videoRef={leftSummaryRef} opacity={summaryActive ? 1 : 0} />
+            <ConvexVideo
+              videoRef={leftCallRef}
+              opacity={callActive ? 1 : 0}
+              src="/videos/left-call.mp4"
+              onEnded={() => { leftDoneRef.current = true; checkBothDone(); }}
+            />
           </div>
         </div>
 
@@ -307,22 +284,21 @@ export default function PitchPage() {
           {/* Video clipped to screen area of iPhone 15 Pro mockup.
               Screen area measured from 1419×2796 source:
               left≈6%, top≈3.5%, width≈88%, height≈93% */}
-          <video ref={rightCallRef} src="/videos/right-call.mp4" muted playsInline loop style={{
-            position: "absolute",
-            left: "8.5%", top: "4.8%", width: "83%", height: "90.5%",
-            objectFit: "cover",
-            borderRadius: "8%",
-            opacity: callActive ? 1 : 0,
-            transition: "opacity 0.6s ease",
-          }} />
-          <video ref={rightSummaryRef} muted playsInline style={{
-            position: "absolute",
-            left: "8.5%", top: "4.8%", width: "83%", height: "90.5%",
-            objectFit: "cover",
-            borderRadius: "8%",
-            opacity: summaryActive ? 1 : 0,
-            transition: "opacity 0.6s ease",
-          }} />
+          <video
+            ref={rightCallRef}
+            src="/videos/right-call.mp4"
+            muted
+            playsInline
+            onEnded={() => { rightDoneRef.current = true; checkBothDone(); }}
+            style={{
+              position: "absolute",
+              left: "8.5%", top: "4.8%", width: "83%", height: "90.5%",
+              objectFit: "cover",
+              borderRadius: "8%",
+              opacity: callActive ? 1 : 0,
+              transition: "opacity 0.6s ease",
+            }}
+          />
 
           {/* iPhone frame — truly topmost, filter on img itself (not parent) */}
           <img
@@ -352,13 +328,13 @@ export default function PitchPage() {
           pointerEvents: closingActive ? "auto" : "none",
         }}
       >
-        <Image src="/inca-logo.avif" alt="inca" width={140} height={48}
+        <Image src="/inca-logo.avif" alt="inca" width={180} height={62}
           style={{ filter: "invert(1)", objectFit: "contain" }} />
         <p style={{
-          color: "rgba(255,255,255,0.78)",
-          fontSize: "clamp(0.9rem, 1.4vw, 1.15rem)",
+          color: "rgba(255,255,255,0.88)",
+          fontSize: "clamp(1.2rem, 2.2vw, 1.75rem)",
           fontWeight: 400, letterSpacing: "0.015em",
-          textAlign: "center", lineHeight: 1.6, maxWidth: "400px",
+          textAlign: "center", lineHeight: 1.6, maxWidth: "600px",
         }}>
           Your customers think it&apos;s a human.<br />
           Your accountant knows it&apos;s not.
