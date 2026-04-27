@@ -52,6 +52,7 @@ export default function PitchPage() {
   const leftDoneRef = useRef(false);
   const rightDoneRef = useRef(false);
   const closingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const audioBoostRef = useRef(false);
 
   const checkBothDone = useCallback(() => {
     if (leftDoneRef.current && rightDoneRef.current) {
@@ -63,7 +64,55 @@ export default function PitchPage() {
     leftDoneRef.current = false;
     rightDoneRef.current = false;
     if (closingTimerRef.current) clearTimeout(closingTimerRef.current);
-    if (leftCallRef.current) { leftCallRef.current.currentTime = 0; leftCallRef.current.play().catch(() => {}); }
+    if (leftCallRef.current) {
+      leftCallRef.current.currentTime = 0;
+      if (!audioBoostRef.current) {
+        try {
+          const ctx = new AudioContext();
+          const src = ctx.createMediaElementSource(leftCallRef.current);
+
+          // Highpass: aggressively cut background rumble below 300Hz
+          const hp = ctx.createBiquadFilter();
+          hp.type = "highpass";
+          hp.frequency.value = 300;
+          hp.Q.value = 1.2;
+
+          // Lowpass: cut hiss above 3800Hz
+          const lp = ctx.createBiquadFilter();
+          lp.type = "lowpass";
+          lp.frequency.value = 3800;
+          lp.Q.value = 1.0;
+
+          // Peaking EQ: strongly boost voice presence at 1800Hz
+          const peak = ctx.createBiquadFilter();
+          peak.type = "peaking";
+          peak.frequency.value = 1800;
+          peak.Q.value = 1.2;
+          peak.gain.value = 12;
+
+          // Compressor: squashes background, brings speech forward
+          const comp = ctx.createDynamicsCompressor();
+          comp.threshold.value = -40;
+          comp.knee.value = 8;
+          comp.ratio.value = 14;
+          comp.attack.value = 0.005;
+          comp.release.value = 0.12;
+
+          // Overall gain boost
+          const gain = ctx.createGain();
+          gain.gain.value = 12.0;
+
+          src.connect(hp);
+          hp.connect(lp);
+          lp.connect(peak);
+          peak.connect(comp);
+          comp.connect(gain);
+          gain.connect(ctx.destination);
+          audioBoostRef.current = true;
+        } catch {}
+      }
+      leftCallRef.current.play().catch(() => {});
+    }
     if (rightCallRef.current) { rightCallRef.current.currentTime = 0; rightCallRef.current.play().catch(() => {}); }
     setStage("call");
   };

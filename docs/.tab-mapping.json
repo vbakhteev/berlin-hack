@@ -1,0 +1,14 @@
+{
+  "backend": "/dev/ttys016",
+  "frontend": "/dev/ttys015",
+  "models": {
+    "backend": "claude-sonnet-4-6",
+    "frontend": "claude-sonnet-4-6",
+    "polish": "claude-sonnet-4-6",
+    "product": "claude-sonnet-4-6",
+    "research": "claude-sonnet-4-6"
+  },
+  "polish": "/dev/ttys019",
+  "product": "/dev/ttys017",
+  "research": "/dev/ttys018"
+}
