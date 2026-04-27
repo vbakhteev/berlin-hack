@@ -70,43 +70,9 @@ export default function PitchPage() {
         try {
           const ctx = new AudioContext();
           const src = ctx.createMediaElementSource(leftCallRef.current);
-
-          // Highpass: aggressively cut background rumble below 300Hz
-          const hp = ctx.createBiquadFilter();
-          hp.type = "highpass";
-          hp.frequency.value = 300;
-          hp.Q.value = 1.2;
-
-          // Lowpass: cut hiss above 3800Hz
-          const lp = ctx.createBiquadFilter();
-          lp.type = "lowpass";
-          lp.frequency.value = 3800;
-          lp.Q.value = 1.0;
-
-          // Peaking EQ: strongly boost voice presence at 1800Hz
-          const peak = ctx.createBiquadFilter();
-          peak.type = "peaking";
-          peak.frequency.value = 1800;
-          peak.Q.value = 1.2;
-          peak.gain.value = 12;
-
-          // Compressor: squashes background, brings speech forward
-          const comp = ctx.createDynamicsCompressor();
-          comp.threshold.value = -40;
-          comp.knee.value = 8;
-          comp.ratio.value = 14;
-          comp.attack.value = 0.005;
-          comp.release.value = 0.12;
-
-          // Overall gain boost
           const gain = ctx.createGain();
-          gain.gain.value = 12.0;
-
-          src.connect(hp);
-          hp.connect(lp);
-          lp.connect(peak);
-          peak.connect(comp);
-          comp.connect(gain);
+          gain.gain.value = 9.0;
+          src.connect(gain);
           gain.connect(ctx.destination);
           audioBoostRef.current = true;
         } catch {}
@@ -222,19 +188,16 @@ export default function PitchPage() {
             <filter id="grain" x="0%" y="0%" width="100%" height="100%">
               <feTurbulence type="fractalNoise" baseFrequency="0.96 1.00"
                 numOctaves="4" seed="11" stitchTiles="stitch" result="t" />
-              <feColorMatrix type="matrix"
-                values="0 0 0 0.36 -0.10
-                        0 0 0 0.68  0.04
-                        0 0 0 0.36 -0.10
-                        0 0 0 4.6 -1.95"
-                in="t" />
+              <feColorMatrix type="matrix" values="0 0 0 0.36 -0.10 0 0 0 0.68 0.04 0 0 0 0.36 -0.10 0 0 0 4.6 -1.95" in="t" />
             </filter>
           </defs>
           <rect width="100%" height="100%" filter="url(#grain)" />
         </svg>
       </div>
 
-      {/* ── Inca logo — top left, always ── */}
+
+      {/* ── Start button ── */}
+      {/* ── Inca logo — top left during call ── */}
       <div className="absolute top-7 left-8 z-50" style={{
         opacity: stage === "call" ? 1 : 0,
         transition: "opacity 1.2s ease",
@@ -243,7 +206,6 @@ export default function PitchPage() {
           style={{ filter: "invert(1)", objectFit: "contain" }} />
       </div>
 
-      {/* ── Start button ── */}
       {stage === "idle" && (
         <div className="absolute inset-0 z-50 flex items-center justify-center">
           <button
